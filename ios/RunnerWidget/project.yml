@@ -2,12 +2,12 @@ name: RunnerWidget
 options:
   bundleIdPrefix: com.example.taskit
   deploymentTarget:
-    iOS: "14.0"
+    iOS: "17.0"
 targets:
   RunnerWidgetExtension:
     type: app-extension
     platform: iOS
-    deploymentTarget: "14.0"
+    deploymentTarget: "17.0"
     sources:
       - path: .
         excludes:
@@ -25,6 +25,8 @@ targets:
         GENERATE_INFOPLIST_FILE: "NO"
         CURRENT_PROJECT_VERSION: "1"
         MARKETING_VERSION: "1.0"
+        IPHONEOS_DEPLOYMENT_TARGET: "17.0"
     dependencies:
       - sdk: WidgetKit.framework
       - sdk: SwiftUI.framework
+      - sdk: AppIntents.framework

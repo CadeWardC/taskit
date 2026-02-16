@@ -1,5 +1,6 @@
 import WidgetKit
 import SwiftUI
+import AppIntents
 
 // MARK: - API Models
 
@@ -41,7 +42,8 @@ class DirectusAPI {
     static let baseUrl = "https://api.opcw032522.uk"
     
     static func fetchTodos(userId: String) async -> [TaskItem] {
-        guard let url = URL(string: "\(baseUrl)/items/todos?filter[user_id][_eq]=\(userId)") else { return [] }
+        guard let encoded = userId.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+              let url = URL(string: "\(baseUrl)/items/todos?filter[user_id][_eq]=\(encoded)") else { return [] }
         do {
             let (data, _) = try await URLSession.shared.data(from: url)
             let response = try JSONDecoder().decode(DirectusResponse<TaskItem>.self, from: data)
@@ -53,7 +55,8 @@ class DirectusAPI {
     }
     
     static func fetchHabits(userId: String) async -> [HabitItem] {
-        guard let url = URL(string: "\(baseUrl)/items/habits?filter[user_id][_eq]=\(userId)") else { return [] }
+        guard let encoded = userId.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+              let url = URL(string: "\(baseUrl)/items/habits?filter[user_id][_eq]=\(encoded)") else { return [] }
         do {
             let (data, _) = try await URLSession.shared.data(from: url)
             let response = try JSONDecoder().decode(DirectusResponse<HabitItem>.self, from: data)
@@ -65,7 +68,8 @@ class DirectusAPI {
     }
     
     static func fetchLists(userId: String) async -> [ListItem] {
-        guard let url = URL(string: "\(baseUrl)/items/lists?filter[user_id][_eq]=\(userId)") else { return [] }
+        guard let encoded = userId.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+              let url = URL(string: "\(baseUrl)/items/lists?filter[user_id][_eq]=\(encoded)") else { return [] }
         do {
             let (data, _) = try await URLSession.shared.data(from: url)
             let response = try JSONDecoder().decode(DirectusResponse<ListItem>.self, from: data)
@@ -75,55 +79,37 @@ class DirectusAPI {
             return []
         }
     }
-    
-    static func completeTodo(id: Int) async -> Bool {
-        guard let url = URL(string: "\(baseUrl)/items/todos/\(id)") else { return false }
-        var request = URLRequest(url: url)
-        request.httpMethod = "PATCH"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try? JSONSerialization.data(withJSONObject: ["is_completed": true])
-        do {
-            let (_, response) = try await URLSession.shared.data(for: request)
-            return (response as? HTTPURLResponse)?.statusCode == 200
-        } catch {
-            return false
-        }
-    }
-    
-    static func toggleHabit(id: Int, completed: Bool, currentProgress: Int, targetCount: Int) async -> Bool {
-        guard let url = URL(string: "\(baseUrl)/items/habits/\(id)") else { return false }
-        var request = URLRequest(url: url)
-        request.httpMethod = "PATCH"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        let newProgress = completed ? 0 : targetCount
-        request.httpBody = try? JSONSerialization.data(withJSONObject: ["current_progress": newProgress])
-        do {
-            let (_, response) = try await URLSession.shared.data(for: request)
-            return (response as? HTTPURLResponse)?.statusCode == 200
-        } catch {
-            return false
-        }
-    }
 }
 
 struct DirectusResponse<T: Codable>: Codable {
     let data: [T]
 }
 
-// MARK: - Widget Configuration
+// MARK: - App Intent Configuration
 
-enum DisplayMode: String, CaseIterable {
+enum DisplayMode: String, AppEnum {
     case allTasks = "all_tasks"
     case habits = "habits"
-    case list = "list"
     
-    var displayName: String {
-        switch self {
-        case .allTasks: return "All Tasks"
-        case .habits: return "Habits"
-        case .list: return "List"
-        }
-    }
+    static var typeDisplayRepresentation: TypeDisplayRepresentation = "Display Mode"
+    static var caseDisplayRepresentations: [DisplayMode: DisplayRepresentation] = [
+        .allTasks: "All Tasks",
+        .habits: "Habits",
+    ]
+}
+
+struct TaskItWidgetIntent: WidgetConfigurationIntent {
+    static var title: LocalizedStringResource = "TaskIt Widget"
+    static var description: IntentDescription = "Configure what your TaskIt widget displays."
+    
+    @Parameter(title: "User ID")
+    var userId: String?
+    
+    @Parameter(title: "Display Mode", default: .allTasks)
+    var displayMode: DisplayMode
+    
+    @Parameter(title: "List Name (leave empty for all)")
+    var listName: String?
 }
 
 // MARK: - Timeline Entry
@@ -134,33 +120,14 @@ struct TaskItEntry: TimelineEntry {
     let habits: [HabitItem]
     let lists: [ListItem]
     let displayMode: DisplayMode
-    let selectedListId: Int?
+    let listName: String?
     let userId: String?
     let isConfigured: Bool
 }
 
-// MARK: - User Defaults (Shared Config)
-
-extension UserDefaults {
-    var widgetUserId: String? {
-        get { string(forKey: "widget_user_id") }
-        set { set(newValue, forKey: "widget_user_id") }
-    }
-    
-    var widgetDisplayMode: String {
-        get { string(forKey: "widget_display_mode") ?? "all_tasks" }
-        set { set(newValue, forKey: "widget_display_mode") }
-    }
-    
-    var widgetSelectedListId: Int? {
-        get { integer(forKey: "widget_list_id") == 0 ? nil : integer(forKey: "widget_list_id") }
-        set { set(newValue, forKey: "widget_list_id") }
-    }
-}
-
 // MARK: - Timeline Provider
 
-struct Provider: TimelineProvider {
+struct Provider: AppIntentTimelineProvider {
     func placeholder(in context: Context) -> TaskItEntry {
         TaskItEntry(
             date: Date(),
@@ -171,63 +138,55 @@ struct Provider: TimelineProvider {
             habits: [],
             lists: [],
             displayMode: .allTasks,
-            selectedListId: nil,
+            listName: nil,
             userId: nil,
             isConfigured: true
         )
     }
 
-    func getSnapshot(in context: Context, completion: @escaping (TaskItEntry) -> ()) {
-        let entry = placeholder(in: context)
-        completion(entry)
+    func snapshot(for configuration: TaskItWidgetIntent, in context: Context) async -> TaskItEntry {
+        return placeholder(in: context)
     }
 
-    func getTimeline(in context: Context, completion: @escaping (Timeline<TaskItEntry>) -> ()) {
-        Task {
-            let defaults = UserDefaults.standard
-            let userId = defaults.widgetUserId
-            let modeString = defaults.widgetDisplayMode
-            let mode = DisplayMode(rawValue: modeString) ?? .allTasks
-            let listId = defaults.widgetSelectedListId
-            
-            guard let userId = userId, !userId.isEmpty else {
-                let entry = TaskItEntry(
-                    date: Date(),
-                    tasks: [], habits: [], lists: [],
-                    displayMode: mode,
-                    selectedListId: nil,
-                    userId: nil,
-                    isConfigured: false
-                )
-                let timeline = Timeline(entries: [entry], policy: .after(Date().addingTimeInterval(300)))
-                completion(timeline)
-                return
-            }
-            
-            async let fetchedTasks = DirectusAPI.fetchTodos(userId: userId)
-            async let fetchedHabits = DirectusAPI.fetchHabits(userId: userId)
-            async let fetchedLists = DirectusAPI.fetchLists(userId: userId)
-            
-            let tasks = await fetchedTasks
-            let habits = await fetchedHabits
-            let lists = await fetchedLists
-            
+    func timeline(for configuration: TaskItWidgetIntent, in context: Context) async -> Timeline<TaskItEntry> {
+        let userId = configuration.userId
+        let mode = configuration.displayMode
+        let listName = configuration.listName
+        
+        guard let userId = userId, !userId.isEmpty else {
             let entry = TaskItEntry(
                 date: Date(),
-                tasks: tasks,
-                habits: habits,
-                lists: lists,
+                tasks: [], habits: [], lists: [],
                 displayMode: mode,
-                selectedListId: listId,
-                userId: userId,
-                isConfigured: true
+                listName: nil,
+                userId: nil,
+                isConfigured: false
             )
-            
-            // Refresh every 15 minutes
-            let nextUpdate = Date().addingTimeInterval(15 * 60)
-            let timeline = Timeline(entries: [entry], policy: .after(nextUpdate))
-            completion(timeline)
+            return Timeline(entries: [entry], policy: .after(Date().addingTimeInterval(300)))
         }
+        
+        async let fetchedTasks = DirectusAPI.fetchTodos(userId: userId)
+        async let fetchedHabits = DirectusAPI.fetchHabits(userId: userId)
+        async let fetchedLists = DirectusAPI.fetchLists(userId: userId)
+        
+        let tasks = await fetchedTasks
+        let habits = await fetchedHabits
+        let lists = await fetchedLists
+        
+        let entry = TaskItEntry(
+            date: Date(),
+            tasks: tasks,
+            habits: habits,
+            lists: lists,
+            displayMode: mode,
+            listName: listName,
+            userId: userId,
+            isConfigured: true
+        )
+        
+        // Refresh every 15 minutes
+        let nextUpdate = Date().addingTimeInterval(15 * 60)
+        return Timeline(entries: [entry], policy: .after(nextUpdate))
     }
 }
 
@@ -333,9 +292,9 @@ struct NotConfiguredView: View {
             Image(systemName: "gear")
                 .font(.system(size: 28))
                 .foregroundColor(.gray)
-            Text("Open TaskIt")
+            Text("Edit Widget")
                 .font(.system(size: 13, weight: .semibold))
-            Text("Set your User ID in Settings to use this widget")
+            Text("Long-press and tap Edit to set your User ID")
                 .font(.system(size: 10))
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
@@ -380,36 +339,48 @@ struct TaskItWidgetEntryView: View {
     
     var headerIcon: String {
         switch entry.displayMode {
-        case .allTasks: return "checklist"
+        case .allTasks:
+            if entry.listName != nil && !entry.listName!.isEmpty {
+                return "list.bullet"
+            }
+            return "checklist"
         case .habits: return "repeat"
-        case .list: return "list.bullet"
         }
     }
     
     var headerTitle: String {
         switch entry.displayMode {
-        case .allTasks: return "Tasks"
-        case .habits: return "Habits"
-        case .list:
-            if let listId = entry.selectedListId,
-               let list = entry.lists.first(where: { $0.id == listId }) {
+        case .allTasks:
+            if let name = entry.listName, !name.isEmpty,
+               let list = entry.lists.first(where: { $0.title.lowercased() == name.lowercased() }) {
                 return list.title
             }
-            return "List"
+            return "Tasks"
+        case .habits: return "Habits"
         }
+    }
+    
+    var filteredTasks: [TaskItem] {
+        var tasks = entry.tasks.filter { !$0.is_completed }
+        
+        // Filter by list name if specified
+        if let name = entry.listName, !name.isEmpty {
+            let matchingList = entry.lists.first(where: { $0.title.lowercased() == name.lowercased() })
+            if let listId = matchingList?.id {
+                tasks = tasks.filter { $0.list_id == listId }
+            }
+        }
+        
+        return tasks
     }
     
     var itemCount: String {
         switch entry.displayMode {
         case .allTasks:
-            let incomplete = entry.tasks.filter { !$0.is_completed }.count
-            return "\(incomplete) left"
+            return "\(filteredTasks.count) left"
         case .habits:
             let done = entry.habits.filter { $0.isCompleted }.count
             return "\(done)/\(entry.habits.count)"
-        case .list:
-            let listTasks = entry.tasks.filter { $0.list_id == entry.selectedListId && !$0.is_completed }
-            return "\(listTasks.count) left"
         }
     }
     
@@ -426,11 +397,11 @@ struct TaskItWidgetEntryView: View {
     var contentView: some View {
         switch entry.displayMode {
         case .allTasks:
-            let incomplete = entry.tasks.filter { !$0.is_completed }.prefix(maxItems)
-            if incomplete.isEmpty {
+            let items = Array(filteredTasks.prefix(maxItems))
+            if items.isEmpty {
                 emptyView(message: "All done! 🎉")
             } else {
-                ForEach(Array(incomplete)) { task in
+                ForEach(items) { task in
                     Link(destination: URL(string: "taskit://complete-task/\(task.id)")!) {
                         TaskRowView(task: task)
                     }
@@ -445,20 +416,6 @@ struct TaskItWidgetEntryView: View {
                 ForEach(habitsList) { habit in
                     Link(destination: URL(string: "taskit://toggle-habit/\(habit.id)")!) {
                         HabitRowView(habit: habit)
-                    }
-                }
-            }
-            
-        case .list:
-            let listTasks = entry.tasks
-                .filter { $0.list_id == entry.selectedListId && !$0.is_completed }
-                .prefix(maxItems)
-            if listTasks.isEmpty {
-                emptyView(message: "No tasks in this list")
-            } else {
-                ForEach(Array(listTasks)) { task in
-                    Link(destination: URL(string: "taskit://complete-task/\(task.id)")!) {
-                        TaskRowView(task: task)
                     }
                 }
             }
@@ -504,12 +461,12 @@ struct RunnerWidget: Widget {
     let kind: String = "RunnerWidget"
 
     var body: some WidgetConfiguration {
-        StaticConfiguration(kind: kind, provider: Provider()) { entry in
+        AppIntentConfiguration(kind: kind, intent: TaskItWidgetIntent.self, provider: Provider()) { entry in
             TaskItWidgetEntryView(entry: entry)
                 .widgetBackground()
         }
         .configurationDisplayName("TaskIt")
-        .description("View and complete your tasks and habits.")
+        .description("View your tasks and habits at a glance.")
         .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
     }
 }
@@ -542,7 +499,7 @@ struct RunnerWidget_Previews: PreviewProvider {
             ],
             lists: [],
             displayMode: .allTasks,
-            selectedListId: nil,
+            listName: nil,
             userId: "test",
             isConfigured: true
         ))
