@@ -505,7 +505,14 @@ struct RunnerWidget: Widget {
 
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: Provider()) { entry in
-            TaskItWidgetEntryView(entry: entry)
+            if #available(iOSApplicationExtension 17.0, *) {
+                TaskItWidgetEntryView(entry: entry)
+                    .containerBackground(.fill.tertiary, for: .widget)
+            } else {
+                TaskItWidgetEntryView(entry: entry)
+                    .padding()
+                    .background()
+            }
         }
         .configurationDisplayName("TaskIt")
         .description("View and complete your tasks and habits.")
