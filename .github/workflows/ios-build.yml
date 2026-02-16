@@ -17,27 +17,45 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      # Ensure Flutter generates the Xcode project and Podfile
-      - name: Prepare iOS project
-        run: |
-          flutter precache --ios
-          flutter build ios --release --no-codesign --config-only || true
-
-      # Add the widget extension target to the existing Xcode project
-      - name: Add Widget Extension to Xcode Project
-        run: |
-          gem install xcodeproj
-          ruby ios/add_widget_target.rb
-
-      # Build the app (this also runs pod install internally)
-      - name: Build iOS
+      # 1) Build the Flutter app normally (no widget involvement)
+      - name: Build Flutter iOS App
         run: flutter build ios --release --no-codesign
 
-      # Package for SideStore
-      - name: Package IPA
+      # 2) Build the widget extension as a standalone Xcode project
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Widget Xcode Project
         run: |
+          cd ios/RunnerWidget
+          xcodegen generate
+          cd ../..
+
+      - name: Build Widget Extension
+        run: |
+          xcodebuild build \
+            -project ios/RunnerWidget/RunnerWidget.xcodeproj \
+            -scheme RunnerWidget \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath build/widget-derived \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO
+
+      # 3) Embed the widget into the app bundle and package
+      - name: Package IPA with Widget
+        run: |
+          APP_PATH="build/ios/iphoneos/Runner.app"
+          WIDGET_PATH=$(find build/widget-derived -name "RunnerWidgetExtension.appex" -type d | head -1)
+
+          # Create PlugIns directory and embed the widget
+          mkdir -p "$APP_PATH/PlugIns"
+          cp -r "$WIDGET_PATH" "$APP_PATH/PlugIns/"
+
+          # Package as IPA
           mkdir Payload
-          cp -r build/ios/iphoneos/Runner.app Payload/
+          cp -r "$APP_PATH" Payload/
           zip -r app-with-widgets.ipa Payload
 
       - name: Upload IPA

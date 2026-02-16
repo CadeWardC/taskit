@@ -1,0 +1,27 @@
+name: RunnerWidget
+options:
+  bundleIdPrefix: com.example.yourapp
+  deploymentTarget:
+    iOS: "14.0"
+targets:
+  RunnerWidgetExtension:
+    type: app-extension
+    platform: iOS
+    deploymentTarget: "14.0"
+    sources:
+      - path: .
+        excludes:
+          - project.yml
+          - "*.xcodeproj/**"
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.example.yourapp.Widget
+        INFOPLIST_FILE: Info.plist
+        SWIFT_VERSION: "5.0"
+        SKIP_INSTALL: "YES"
+        CODE_SIGN_IDENTITY: ""
+        CODE_SIGNING_REQUIRED: "NO"
+        CODE_SIGNING_ALLOWED: "NO"
+        GENERATE_INFOPLIST_FILE: "NO"
+        CURRENT_PROJECT_VERSION: "1"
+        MARKETING_VERSION: "1.0"
