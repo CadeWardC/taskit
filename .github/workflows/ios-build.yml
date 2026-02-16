@@ -1,4 +1,4 @@
-name: Build iOS with Widget (No Mac)
+name: Build iOS with Widget
 
 on:
   workflow_dispatch:
@@ -9,10 +9,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Install XcodeGen
-      - name: Install XcodeGen
-        run: brew install xcodegen
-
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -21,14 +17,19 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      # GENERATE the Xcode project from your YAML file
-      - name: Generate Xcode Project
+      # Ensure Flutter generates the Xcode project and Podfile
+      - name: Prepare iOS project
         run: |
-          cd ios
-          xcodegen generate
-          cd ..
+          flutter precache --ios
+          flutter build ios --release --no-codesign --config-only || true
 
-      # Build as normal
+      # Add the widget extension target to the existing Xcode project
+      - name: Add Widget Extension to Xcode Project
+        run: |
+          gem install xcodeproj
+          ruby ios/add_widget_target.rb
+
+      # Build the app (this also runs pod install internally)
       - name: Build iOS
         run: flutter build ios --release --no-codesign
 
