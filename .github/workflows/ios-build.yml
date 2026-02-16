@@ -47,11 +47,28 @@ jobs:
       - name: Package IPA with Widget
         run: |
           APP_PATH="build/ios/iphoneos/Runner.app"
-          WIDGET_PATH=$(find build/widget-derived -name "RunnerWidgetExtension.appex" -type d | head -1)
+
+          # Debug: show what was built
+          echo "=== Looking for .appex files ==="
+          find build/widget-derived -name "*.appex" -type d 2>/dev/null || echo "No .appex found!"
+          echo "=== Widget derived data contents ==="
+          find build/widget-derived/Build/Products -type d -maxdepth 3 2>/dev/null || echo "No products found"
+
+          WIDGET_PATH=$(find build/widget-derived -name "*.appex" -type d | head -1)
+
+          if [ -z "$WIDGET_PATH" ]; then
+            echo "ERROR: No .appex found in widget build output!"
+            exit 1
+          fi
+
+          echo "Found widget at: $WIDGET_PATH"
 
           # Create PlugIns directory and embed the widget
           mkdir -p "$APP_PATH/PlugIns"
           cp -r "$WIDGET_PATH" "$APP_PATH/PlugIns/"
+
+          echo "=== PlugIns contents ==="
+          ls -la "$APP_PATH/PlugIns/"
 
           # Package as IPA
           mkdir Payload
