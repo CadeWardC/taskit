@@ -182,6 +182,14 @@ class DirectusService {
     }
   }
 
+  Future<void> deleteList(int id) async {
+    try {
+      await _dio.delete('/items/lists/$id');
+    } catch (e) {
+      throw Exception('Failed to delete list: $e');
+    }
+  }
+
   // ============================================================
   // HABITS
   // ============================================================

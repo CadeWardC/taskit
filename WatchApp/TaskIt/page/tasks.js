@@ -55,12 +55,14 @@ Page(
                 },
             });
 
-            localStorage.setItem("lastPage", JSON.stringify({
-                route: "page/tasks",
-                params: { listId: this.state.listId, title: this.state.listTitle },
-            }));
-
             this.fetchTodos();
+
+            try {
+                localStorage.setItem("lastPage", JSON.stringify({
+                    route: "page/tasks",
+                    params: { listId: this.state.listId, title: this.state.listTitle },
+                }));
+            } catch (e) {}
         },
 
         fetchTodos() {

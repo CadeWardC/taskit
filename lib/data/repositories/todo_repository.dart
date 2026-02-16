@@ -61,4 +61,5 @@ class TodoRepository {
   // Lists
   Future<List<TodoList>> getLists() => _service.getLists();
   Future<TodoList> addList(String title, String color) => _service.createList(title, color);
+  Future<void> deleteList(int id) => _service.deleteList(id);
 }

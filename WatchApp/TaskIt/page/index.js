@@ -47,15 +47,15 @@ Page(
                 },
             });
 
-            const saved = localStorage.getItem("lastPage");
-            if (saved) {
-                localStorage.removeItem("lastPage");
-                try {
+            try {
+                const saved = localStorage.getItem("lastPage");
+                if (saved) {
+                    localStorage.removeItem("lastPage");
                     const { route, params } = JSON.parse(saved);
                     push({ url: route, params: params });
-                } catch (e) {
-                    logger.log("Failed to restore last page: " + e);
                 }
+            } catch (e) {
+                logger.log("Failed to restore last page: " + e);
             }
         },
     })

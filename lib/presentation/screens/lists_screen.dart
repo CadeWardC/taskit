@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/todo_provider.dart';
 import '../widgets/task_widgets.dart';
+import '../widgets/task_dialog.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 
 class ListsScreen extends StatefulWidget {
@@ -12,7 +13,6 @@ class ListsScreen extends StatefulWidget {
 }
 
 class _ListsScreenState extends State<ListsScreen> {
-  int? _selectedListId;
 
   void _showAddListDialog(BuildContext context) {
     final titleController = TextEditingController();
@@ -110,9 +110,9 @@ class _ListsScreenState extends State<ListsScreen> {
 
         // Filter tasks by list if selected
         final allTasks = provider.todos;
-        final filteredTasks = _selectedListId == null
+        final filteredTasks = provider.selectedListId == null
             ? allTasks
-            : allTasks.where((t) => t.listId == _selectedListId).toList();
+            : allTasks.where((t) => t.listId == provider.selectedListId).toList();
 
         return SafeArea(
           child: Column(
@@ -147,8 +147,8 @@ class _ListsScreenState extends State<ListsScreen> {
                     _buildListChip(
                       context,
                       label: 'All Tasks',
-                      isSelected: _selectedListId == null,
-                      onTap: () => setState(() => _selectedListId = null),
+                      isSelected: provider.selectedListId == null,
+                      onTap: () => provider.setSelectedListId(null),
                     ),
                     ...provider.lists.map(
                       (list) => _buildListChip(
@@ -161,8 +161,13 @@ class _ListsScreenState extends State<ListsScreen> {
                                 ),
                               )
                             : null,
-                        isSelected: _selectedListId == list.id,
-                        onTap: () => setState(() => _selectedListId = list.id),
+                        isSelected: provider.selectedListId == list.id,
+                        onTap: () => provider.setSelectedListId(list.id),
+                        onLongPress: () {
+                          if (list.id != null) {
+                            _showDeleteListDialog(context, list.id!, list.title);
+                          }
+                        },
                       ),
                     ),
                   ],
@@ -196,16 +201,25 @@ class _ListsScreenState extends State<ListsScreen> {
                         padding: const EdgeInsets.symmetric(
                           horizontal: 16,
                           vertical: 8,
-                        ),
+                        ).copyWith(bottom: 100),
                         itemCount: filteredTasks.length,
                         itemBuilder: (context, index) {
                           final todo = filteredTasks[index];
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 12),
-                            child: TaskCard(
-                              todo: todo,
-                              onToggle: () => provider.toggleTodo(todo.id!),
-                              onDelete: () => provider.deleteTodo(todo.id!),
+                            child: InkWell(
+                              onTap: () {
+                                showDialog(
+                                  context: context,
+                                  builder: (context) => TaskDialog(todo: todo),
+                                );
+                              },
+                              borderRadius: BorderRadius.circular(16),
+                              child: TaskCard(
+                                todo: todo,
+                                onToggle: () => provider.toggleTodo(todo.id!),
+                                onDelete: () => provider.deleteTodo(todo.id!),
+                              ),
                             ),
                           );
                         },
@@ -224,34 +238,64 @@ class _ListsScreenState extends State<ListsScreen> {
     Color? color,
     required bool isSelected,
     required VoidCallback onTap,
+    VoidCallback? onLongPress,
   }) {
+
     return Padding(
       padding: const EdgeInsets.only(right: 8),
-      child: FilterChip(
-        label: Text(label),
-        selected: isSelected,
-        onSelected: (_) => onTap(),
-        backgroundColor: Colors.white.withValues(alpha: 0.1),
-        selectedColor: (color ?? Theme.of(context).colorScheme.primary)
-            .withValues(alpha: 0.3),
-        checkmarkColor: Colors.white,
-        side: BorderSide(
-          color: isSelected
-              ? (color ?? Theme.of(context).colorScheme.primary)
-              : Colors.transparent,
-          width: 2,
+      child: GestureDetector(
+        onLongPress: onLongPress,
+        child: FilterChip(
+          label: Text(label),
+          selected: isSelected,
+          onSelected: (_) => onTap(),
+          backgroundColor: Colors.white.withValues(alpha: 0.1),
+          selectedColor: (color ?? Theme.of(context).colorScheme.primary)
+              .withValues(alpha: 0.3),
+          checkmarkColor: Colors.white,
+          side: BorderSide(
+            color: isSelected
+                ? (color ?? Theme.of(context).colorScheme.primary)
+                : Colors.transparent,
+            width: 2,
+          ),
+          labelStyle: TextStyle(
+            color: isSelected ? Colors.white : Colors.white70,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+          ),
+          avatar: color != null
+              ? Container(
+                  width: 12,
+                  height: 12,
+                  decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+                )
+              : null,
         ),
-        labelStyle: TextStyle(
-          color: isSelected ? Colors.white : Colors.white70,
-          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-        ),
-        avatar: color != null
-            ? Container(
-                width: 12,
-                height: 12,
-                decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-              )
-            : null,
+      ),
+    );
+  }
+
+  void _showDeleteListDialog(BuildContext context, int listId, String listName) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1E1E1E),
+        title: const Text('Delete List'),
+        content: Text('Are you sure you want to delete "$listName"?\nAll tasks in this list will be deleted.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              context.read<TodoProvider>().deleteList(listId);
+              Navigator.pop(context);
+            },
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
       ),
     );
   }

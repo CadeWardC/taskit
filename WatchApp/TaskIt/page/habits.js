@@ -39,10 +39,12 @@ Page(
                 },
             });
 
-            localStorage.setItem("lastPage", JSON.stringify({ route: "page/habits" }));
-
             // Fetch habits
             this.fetchHabits();
+
+            try {
+                localStorage.setItem("lastPage", JSON.stringify({ route: "page/habits" }));
+            } catch (e) {}
         },
 
         fetchHabits() {

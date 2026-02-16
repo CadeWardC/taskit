@@ -14,6 +14,9 @@ class Todo {
   @JsonKey(name: 'due_date')
   final DateTime? dueDate;
 
+  @JsonKey(name: 'date_updated')
+  final DateTime? dateUpdated;
+
   // Duration in minutes
   final int? duration;
 
@@ -39,6 +42,7 @@ class Todo {
     this.detail,
     this.isCompleted = false,
     this.dueDate,
+    this.dateUpdated,
     this.duration,
     this.priority = 'none',
     this.listId,
@@ -56,6 +60,7 @@ class Todo {
     String? detail,
     bool? isCompleted,
     DateTime? dueDate,
+    DateTime? dateUpdated,
     int? duration,
     String? priority,
     int? listId,
@@ -69,6 +74,7 @@ class Todo {
       detail: detail ?? this.detail,
       isCompleted: isCompleted ?? this.isCompleted,
       dueDate: dueDate ?? this.dueDate,
+      dateUpdated: dateUpdated ?? this.dateUpdated,
       duration: duration ?? this.duration,
       priority: priority ?? this.priority,
       listId: listId ?? this.listId,

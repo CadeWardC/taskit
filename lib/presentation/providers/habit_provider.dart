@@ -62,6 +62,43 @@ class HabitProvider extends ChangeNotifier {
     }
   }
 
+  Future<void> updateHabit(
+    int id, {
+    String? title,
+    String? detail,
+    String? icon,
+    String? color,
+    int? targetCount,
+    String? frequency,
+    int? repeatInterval,
+    String? goalType,
+    List<int>? customDays,
+  }) async {
+    try {
+      final updatedHabit = await _repository.updateHabit(
+        id,
+        title: title,
+        detail: detail,
+        icon: icon,
+        color: color,
+        targetCount: targetCount,
+        frequency: frequency,
+        repeatInterval: repeatInterval,
+        goalType: goalType,
+        customDays: customDays,
+      );
+      
+      final index = _habits.indexWhere((h) => h.id == id);
+      if (index != -1) {
+        _habits[index] = updatedHabit;
+        notifyListeners();
+      }
+    } catch (e) {
+      _error = e.toString();
+      notifyListeners();
+    }
+  }
+
   /// Toggle habit completion like a task checkbox.
   /// Check = mark complete for today, increment streak.
   /// Uncheck = mark incomplete, revert streak so re-checking doesn't double-count.

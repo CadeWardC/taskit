@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/habit_provider.dart';
 import '../widgets/habit_card.dart';
+import '../widgets/habit_dialog.dart';
 
 class HabitsScreen extends StatefulWidget {
   const HabitsScreen({super.key});
@@ -137,10 +138,20 @@ class _HabitsScreenState extends State<HabitsScreen> {
                           final habit = provider.habits[index];
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 16),
-                            child: HabitCard(
-                              habit: habit,
-                              onToggle: () => provider.toggleHabit(habit.id!),
-                              onDelete: () => provider.deleteHabit(habit.id!),
+                            child: InkWell(
+                              onTap: () {
+                                showDialog(
+                                  context: context,
+                                  builder: (context) =>
+                                      HabitDialog(habit: habit),
+                                );
+                              },
+                              borderRadius: BorderRadius.circular(16),
+                              child: HabitCard(
+                                habit: habit,
+                                onToggle: () => provider.toggleHabit(habit.id!),
+                                onDelete: () => provider.deleteHabit(habit.id!),
+                              ),
                             ),
                           );
                         },

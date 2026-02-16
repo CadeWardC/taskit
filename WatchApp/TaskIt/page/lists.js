@@ -36,9 +36,11 @@ Page(
                 },
             });
 
-            localStorage.setItem("lastPage", JSON.stringify({ route: "page/lists" }));
-
             this.fetchLists();
+
+            try {
+                localStorage.setItem("lastPage", JSON.stringify({ route: "page/lists" }));
+            } catch (e) {}
         },
 
         fetchLists() {
