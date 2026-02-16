@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../data/services/directus_service.dart';
+import '../../data/services/widget_service.dart';
 
 class AuthProvider extends ChangeNotifier {
   final DirectusService _directusService;
@@ -20,6 +21,8 @@ class AuthProvider extends ChangeNotifier {
     _currentUserId = prefs.getString('current_user_id');
     if (_currentUserId != null) {
       _directusService.setUserId(_currentUserId!);
+      // Sync user ID to iOS widget
+      WidgetService.syncUserId(_currentUserId!);
     }
     _isLoading = false;
     notifyListeners();
@@ -42,6 +45,8 @@ class AuthProvider extends ChangeNotifier {
       await prefs.setString('current_user_id', userId);
       _currentUserId = userId;
       _directusService.setUserId(userId);
+      // Sync user ID to iOS widget
+      WidgetService.syncUserId(userId);
     } catch (e) {
       _isLoading = false;
       notifyListeners();

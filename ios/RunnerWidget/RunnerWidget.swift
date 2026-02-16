@@ -142,8 +142,6 @@ struct TaskItEntry: TimelineEntry {
 // MARK: - User Defaults (Shared Config)
 
 extension UserDefaults {
-    static let widgetGroup = UserDefaults(suiteName: "group.com.example.taskit") ?? .standard
-    
     var widgetUserId: String? {
         get { string(forKey: "widget_user_id") }
         set { set(newValue, forKey: "widget_user_id") }
@@ -186,7 +184,7 @@ struct Provider: TimelineProvider {
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<TaskItEntry>) -> ()) {
         Task {
-            let defaults = UserDefaults.widgetGroup
+            let defaults = UserDefaults.standard
             let userId = defaults.widgetUserId
             let modeString = defaults.widgetDisplayMode
             let mode = DisplayMode(rawValue: modeString) ?? .allTasks
