@@ -505,18 +505,23 @@ struct RunnerWidget: Widget {
 
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: Provider()) { entry in
-            if #available(iOSApplicationExtension 17.0, *) {
-                TaskItWidgetEntryView(entry: entry)
-                    .containerBackground(.fill.tertiary, for: .widget)
-            } else {
-                TaskItWidgetEntryView(entry: entry)
-                    .padding()
-                    .background()
-            }
+            TaskItWidgetEntryView(entry: entry)
+                .widgetBackground()
         }
         .configurationDisplayName("TaskIt")
         .description("View and complete your tasks and habits.")
         .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
+    }
+}
+
+// iOS 17+ containerBackground compatibility
+extension View {
+    func widgetBackground() -> some View {
+        if #available(iOSApplicationExtension 17.0, *) {
+            return AnyView(self.containerBackground(.fill.tertiary, for: .widget))
+        } else {
+            return AnyView(self.background(Color(.systemBackground)))
+        }
     }
 }
 
