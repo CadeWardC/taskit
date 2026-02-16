@@ -1,0 +1,71 @@
+import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../../data/services/directus_service.dart';
+
+class AuthProvider extends ChangeNotifier {
+  final DirectusService _directusService;
+  String? _currentUserId;
+  bool _isLoading = true;
+
+  AuthProvider(this._directusService) {
+    _loadUser();
+  }
+
+  String? get currentUserId => _currentUserId;
+  bool get isLoading => _isLoading;
+  bool get isAuthenticated => _currentUserId != null;
+
+  Future<void> _loadUser() async {
+    final prefs = await SharedPreferences.getInstance();
+    _currentUserId = prefs.getString('current_user_id');
+    if (_currentUserId != null) {
+      _directusService.setUserId(_currentUserId!);
+    }
+    _isLoading = false;
+    notifyListeners();
+  }
+
+  Future<void> login(String userId) async {
+    // Basic validation: user ID must not be empty
+    if (userId.isEmpty) {
+      throw Exception('User ID must not be empty');
+    }
+
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      // Ensure user exists in Directus (create if not)
+      await _directusService.ensureUserExists(userId);
+      
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('current_user_id', userId);
+      _currentUserId = userId;
+      _directusService.setUserId(userId);
+    } catch (e) {
+      _isLoading = false;
+      notifyListeners();
+      rethrow;
+    }
+    
+    _isLoading = false;
+    notifyListeners();
+  }
+
+  Future<void> logout() async {
+    _isLoading = true;
+    notifyListeners();
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('current_user_id');
+    _currentUserId = null;
+    // We intentionally don't clear the DirectusService user ID here
+    // immediately to avoid issues if operations are in flight, 
+    // but in practice it will be reset on next login.
+    // For correctness let's clear it or leave it as is since
+    // next login writes over it.
+    
+    _isLoading = false;
+    notifyListeners();
+  }
+}
