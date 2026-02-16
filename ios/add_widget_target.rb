@@ -34,6 +34,8 @@ widget_target.build_configurations.each do |config|
   config.build_settings['CURRENT_PROJECT_VERSION'] = '1'
   config.build_settings['MARKETING_VERSION'] = '1.0'
   config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '14.0'
+  # Prevent the extension from being treated as a standalone installable
+  config.build_settings['SKIP_INSTALL'] = 'YES'
 end
 
 # Add source files to the widget target
@@ -45,7 +47,7 @@ Dir.glob(File.join(widget_dir, '*.swift')).each do |file|
   widget_target.source_build_phase.add_file_reference(file_ref)
 end
 
-# Add Info.plist as a resource (it's referenced via INFOPLIST_FILE, not compiled)
+# Add Info.plist reference (not compiled, just referenced via INFOPLIST_FILE)
 plist_path = File.join(widget_dir, 'Info.plist')
 if File.exist?(plist_path)
   widget_group.new_file(plist_path)
@@ -56,10 +58,21 @@ runner_target = project.targets.find { |t| t.name == 'Runner' }
 if runner_target
   runner_target.add_dependency(widget_target)
 
-  # Add "Embed App Extensions" build phase
-  embed_phase = runner_target.new_copy_files_build_phase('Embed App Extensions')
-  embed_phase.dst_subfolder_spec = '13' # PlugIns folder
-  embed_phase.add_file_reference(widget_target.product_reference)
+  # Check if an "Embed App Extensions" phase already exists
+  embed_phase = runner_target.copy_files_build_phases.find { |p| p.name == 'Embed App Extensions' }
+
+  unless embed_phase
+    embed_phase = runner_target.new_copy_files_build_phase('Embed App Extensions')
+    embed_phase.dst_subfolder_spec = '13' # PlugIns folder
+  end
+
+  # Only add the product reference if it's not already there
+  already_embedded = embed_phase.files.any? { |f| f.file_ref == widget_target.product_reference }
+  unless already_embedded
+    build_file = embed_phase.add_file_reference(widget_target.product_reference)
+    # Set "Code Sign On Copy" attribute
+    build_file.settings = { 'ATTRIBUTES' => ['RemoveHeadersOnCopy'] }
+  end
 end
 
 project.save
