@@ -1,17 +1,18 @@
-name: Build iOS (Unsigned)
+name: Build iOS with Widget (No Mac)
 
 on:
-  workflow_dispatch: # Allows manual triggering
-  push:
-    branches: [ "main" ] # Triggers on push to main
+  workflow_dispatch:
 
 jobs:
-  build_ios:
+  build:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
 
-      # Set up the Flutter environment
+      # Install XcodeGen
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -20,25 +21,26 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      # Build the iOS app bundle (.app) without signing
-      # This skips the need for a Developer Account at this stage
-      - name: Build iOS App
+      # GENERATE the Xcode project from your YAML file
+      - name: Generate Xcode Project
         run: |
-          flutter build ios --release --no-codesign
+          cd ios
+          xcodegen generate
+          cd ..
 
-      # Convert the .app bundle to an .ipa file
-      # Apple requires the .app to be inside a folder named 'Payload'
+      # Build as normal
+      - name: Build iOS
+        run: flutter build ios --release --no-codesign
+
+      # Package for SideStore
       - name: Package IPA
         run: |
           mkdir Payload
-          # Move the build artifact into the Payload folder
-          mv build/ios/iphoneos/Runner.app Payload/
-          # Zip it up to create the IPA
-          zip -r release.ipa Payload
+          cp -r build/ios/iphoneos/Runner.app Payload/
+          zip -r app-with-widgets.ipa Payload
 
-      # Upload the IPA so you can download it from GitHub
-      - name: Upload IPA Artifact
+      - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
-          name: ios-app-release
-          path: release.ipa
+          name: app-with-widgets
+          path: app-with-widgets.ipa

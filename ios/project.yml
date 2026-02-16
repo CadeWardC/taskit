@@ -1,0 +1,31 @@
+name: Runner
+options:
+  bundleIdPrefix: com.example.yourapp
+targets:
+  Runner:
+    type: application
+    platform: iOS
+    deploymentTarget: "14.0"
+    sources: [Runner]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.example.yourapp
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+    dependencies:
+      - target: RunnerWidget
+    preBuildScripts:
+      - script: /bin/sh "$FLUTTER_ROOT/packages/flutter_tools/bin/xcode_backend.sh" build
+        name: Run Flutter Build Script
+    postBuildScripts:
+      - script: /bin/sh "$FLUTTER_ROOT/packages/flutter_tools/bin/xcode_backend.sh" embed_and_thin
+        name: Embed and Thin Flutter
+
+  RunnerWidget:
+    type: app-extension
+    platform: iOS
+    deploymentTarget: "14.0"
+    sources: [RunnerWidget]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.example.yourapp.Widget
+        INFOPLIST_FILE: RunnerWidget/Info.plist
