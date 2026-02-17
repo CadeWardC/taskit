@@ -1,6 +1,6 @@
 import * as hmUI from "@zos/ui";
 import { push } from "@zos/router";
-import { localStorage } from "@zos/storage";
+
 import { log as Logger } from "@zos/utils";
 import { BasePage } from "@zeppos/zml/base-page";
 import {
@@ -47,16 +47,17 @@ Page(
                 },
             });
 
-            try {
-                const saved = localStorage.getItem("lastPage");
-                if (saved) {
-                    localStorage.removeItem("lastPage");
-                    const { route, params } = JSON.parse(saved);
-                    push({ url: route, params: params });
-                }
-            } catch (e) {
-                logger.log("Failed to restore last page: " + e);
-            }
+            this.request({ method: "GET_LAST_PAGE" })
+                .then((data) => {
+                    if (data.result && data.result.route) {
+                        const { route, ...params } = data.result;
+                        logger.log("Restoring last page: " + route);
+                        push({ url: route, params: params });
+                    }
+                })
+                .catch((e) => {
+                    logger.log("Failed to restore last page: " + e);
+                });
         },
     })
 );

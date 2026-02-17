@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 class WidgetService {
@@ -10,7 +10,7 @@ class WidgetService {
     String? displayMode,
     int? listId,
   }) async {
-    if (!Platform.isIOS) return;
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.iOS) return;
     
     try {
       await _channel.invokeMethod('setWidgetConfig', {
@@ -26,7 +26,7 @@ class WidgetService {
 
   /// Get current widget configuration
   static Future<Map<String, dynamic>?> getWidgetConfig() async {
-    if (!Platform.isIOS) return null;
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.iOS) return null;
     
     try {
       final result = await _channel.invokeMethod('getWidgetConfig');
@@ -39,5 +39,16 @@ class WidgetService {
   /// Convenience: sync user ID to widget when it changes
   static Future<void> syncUserId(String userId) async {
     await updateWidgetConfig(userId: userId);
+  }
+
+  /// Clear widget configuration (call on logout)
+  static Future<void> clearWidgetConfig() async {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.iOS) return;
+
+    try {
+      await _channel.invokeMethod('clearWidgetConfig');
+    } catch (e) {
+      print('Widget clear failed: $e');
+    }
   }
 }

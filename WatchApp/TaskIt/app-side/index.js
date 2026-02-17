@@ -232,6 +232,26 @@ AppSideService(
           res(null, { result: userId });
           break;
 
+        case "SET_LAST_PAGE":
+          try {
+            settingsLib.setItem("lastPage", JSON.stringify(req.params));
+            res(null, { result: true });
+          } catch (e) {
+            this.log("SET_LAST_PAGE error:", e);
+            res(null, { result: false });
+          }
+          break;
+
+        case "GET_LAST_PAGE":
+          try {
+            const raw = settingsLib.getItem("lastPage");
+            res(null, { result: raw ? JSON.parse(raw) : null });
+          } catch (e) {
+            this.log("GET_LAST_PAGE error:", e);
+            res(null, { result: null });
+          }
+          break;
+
         default:
           res(null, { result: null, error: "Unknown method" });
       }

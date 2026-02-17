@@ -1,6 +1,6 @@
 import * as hmUI from "@zos/ui";
 import { log as Logger } from "@zos/utils";
-import { localStorage } from "@zos/storage";
+
 import { BasePage } from "@zeppos/zml/base-page";
 import { createKeyboard, inputType, deleteKeyboard } from "@zos/ui";
 import {
@@ -57,12 +57,10 @@ Page(
 
             this.fetchTodos();
 
-            try {
-                localStorage.setItem("lastPage", JSON.stringify({
-                    route: "page/tasks",
-                    params: { listId: this.state.listId, title: this.state.listTitle },
-                }));
-            } catch (e) {}
+            this.request({
+                method: "SET_LAST_PAGE",
+                params: { route: "page/tasks", listId: this.state.listId, title: this.state.listTitle },
+            }).catch(() => {});
         },
 
         fetchTodos() {

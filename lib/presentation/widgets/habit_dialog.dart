@@ -4,6 +4,7 @@ import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
 import '../../data/models/habit.dart';
 import '../providers/habit_provider.dart';
 import '../widgets/recurring_picker.dart';
+import '../widgets/color_selector.dart';
 
 class HabitDialog extends StatefulWidget {
   final Habit? habit;
@@ -28,14 +29,7 @@ class _HabitDialogState extends State<HabitDialog> {
   String _goalType = 'daily';
   List<int>? _customDays;
 
-  final _colors = [
-    '#BB86FC',
-    '#03DAC6',
-    '#CF6679',
-    '#FFA000',
-    '#4CAF50',
-    '#2196F3'
-  ];
+
 
   @override
   void initState() {
@@ -264,31 +258,9 @@ class _HabitDialogState extends State<HabitDialog> {
             ),
 
             const SizedBox(height: 16),
-            Text(
-              'Color',
-              style: TextStyle(color: Colors.white.withValues(alpha: 0.7)),
-            ),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              children: _colors.map((color) {
-                final isSelected = _selectedColor == color;
-                return GestureDetector(
-                  onTap: () => setState(() => _selectedColor = color),
-                  child: Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color:
-                          Color(int.parse(color.replaceFirst('#', '0xFF'))),
-                      shape: BoxShape.circle,
-                      border: isSelected
-                          ? Border.all(color: Colors.white, width: 3)
-                          : null,
-                    ),
-                  ),
-                );
-              }).toList(),
+            ColorSelector(
+              selectedColor: _selectedColor ?? '#BB86FC',
+              onColorChanged: (color) => setState(() => _selectedColor = color),
             ),
             const SizedBox(height: 24),
             SizedBox(

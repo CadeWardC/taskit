@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import '../providers/todo_provider.dart';
 import '../widgets/task_widgets.dart';
 import '../widgets/task_dialog.dart';
-import 'package:flutter_colorpicker/flutter_colorpicker.dart';
+import '../widgets/color_selector.dart';
 
 class ListsScreen extends StatefulWidget {
   const ListsScreen({super.key});
@@ -42,16 +42,13 @@ class _ListsScreenState extends State<ListsScreen> {
               ),
               const SizedBox(height: 16),
               const SizedBox(height: 16),
-              const Text('Color', style: TextStyle(color: Colors.white70)),
-              const SizedBox(height: 8),
-              ColorPicker(
-                pickerColor: selectedColor,
-                onColorChanged: (color) => setDialogState(() => selectedColor = color),
-                enableAlpha: false,
-                displayThumbColor: true,
-                paletteType: PaletteType.hueWheel,
-                labelTypes: const [],
-                hexInputBar: false,
+              ColorSelector(
+                selectedColor: '#${selectedColor.value.toRadixString(16).padLeft(8, '0').substring(2).toUpperCase()}',
+                onColorChanged: (hex) {
+                  setDialogState(() {
+                    selectedColor = Color(int.parse(hex.replaceFirst('#', '0xFF')));
+                  });
+                },
               ),
             ],
           ),

@@ -64,12 +64,8 @@ class AuthProvider extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('current_user_id');
     _currentUserId = null;
-    // We intentionally don't clear the DirectusService user ID here
-    // immediately to avoid issues if operations are in flight, 
-    // but in practice it will be reset on next login.
-    // For correctness let's clear it or leave it as is since
-    // next login writes over it.
-    
+    await WidgetService.clearWidgetConfig();
+
     _isLoading = false;
     notifyListeners();
   }
