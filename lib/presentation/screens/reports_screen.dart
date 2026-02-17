@@ -20,24 +20,54 @@ class _ReportsScreenState extends State<ReportsScreen> {
   @override
   void initState() {
     super.initState();
+    // Ensure habits are fetched
+    Future.microtask(() =>
+        Provider.of<HabitProvider>(context, listen: false).fetchHabits());
     _loadLogs();
   }
 
   Future<void> _loadLogs() async {
     final provider = Provider.of<HabitProvider>(context, listen: false);
-    final Map<int, List<HabitLog>> logs = {};
+    
+    // First pass: Load from cache
+    final Map<int, List<HabitLog>> cachedLogs = {};
+    // Note: Provider habits might be empty initially if fetchHabits hasn't completed
+    // but caching ensures we might have them faster.
+    
+    // We can iterate cache directly if exposure existed, but stick to iterating current habits
+    // or we wait for habits?
+    // Let's just try to load what we can.
+    
+    for (final habit in provider.habits) {
+      if (habit.id != null) {
+        final logs = await provider.getCachedHabitLogs(habit.id!);
+        if (logs != null) cachedLogs[habit.id!] = logs;
+      }
+    }
+    
+    if (mounted && cachedLogs.isNotEmpty) {
+      setState(() {
+        _logsPerHabit = cachedLogs;
+        _loading = false;
+      });
+    }
+
+    // Second pass: Load from network
+    final Map<int, List<HabitLog>> freshLogs = {};
     for (final habit in provider.habits) {
       if (habit.id != null) {
         try {
-          logs[habit.id!] = await provider.getHabitHistory(habit.id!);
+          freshLogs[habit.id!] = await provider.getHabitHistory(habit.id!);
         } catch (_) {
-          logs[habit.id!] = [];
+          // Keep existing/cached logs on error
+          freshLogs[habit.id!] = _logsPerHabit[habit.id!] ?? [];
         }
       }
     }
+    
     if (mounted) {
       setState(() {
-        _logsPerHabit = logs;
+        _logsPerHabit = freshLogs;
         _loading = false;
       });
     }

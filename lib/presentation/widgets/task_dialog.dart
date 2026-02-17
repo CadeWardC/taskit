@@ -72,6 +72,7 @@ class _TaskDialogState extends State<TaskDialog> {
             const SizedBox(height: 16),
             TextField(
               controller: _titleController,
+              textCapitalization: TextCapitalization.sentences,
               style: const TextStyle(color: Colors.white),
               decoration: InputDecoration(
                 labelText: 'Title',

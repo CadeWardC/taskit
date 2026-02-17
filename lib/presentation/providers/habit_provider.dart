@@ -3,9 +3,11 @@ import '../../data/models/habit.dart';
 import '../../data/models/habit_log.dart';
 
 import '../../data/repositories/habit_repository.dart';
+import '../../data/services/local_cache_service.dart';
 
 class HabitProvider extends ChangeNotifier {
   final HabitRepository _repository;
+  final LocalCacheService _cache;
   List<Habit> _habits = [];
   bool _isLoading = false;
   String? _error;
@@ -14,15 +16,27 @@ class HabitProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get error => _error;
 
-  HabitProvider(this._repository);
+  HabitProvider(this._repository, this._cache);
 
   Future<void> fetchHabits() async {
     _isLoading = true;
     _error = null;
     notifyListeners();
 
+    // Load cached data first for instant UI
+    if (_habits.isEmpty) {
+      final cachedHabits = await _cache.getCachedHabits();
+      if (cachedHabits != null && cachedHabits.isNotEmpty) {
+        _habits = cachedHabits;
+        _isLoading = false;
+        notifyListeners();
+        _isLoading = true;
+      }
+    }
+
     try {
       _habits = await _repository.getHabits();
+      await _cache.cacheHabits(_habits);
     } catch (e) {
       _error = e.toString();
     } finally {
@@ -55,6 +69,7 @@ class HabitProvider extends ChangeNotifier {
         customDays: customDays,
       );
       _habits.add(newHabit);
+      await _cache.cacheHabits(_habits);
       notifyListeners();
     } catch (e) {
       _error = e.toString();
@@ -91,6 +106,7 @@ class HabitProvider extends ChangeNotifier {
       final index = _habits.indexWhere((h) => h.id == id);
       if (index != -1) {
         _habits[index] = updatedHabit;
+        await _cache.cacheHabits(_habits);
         notifyListeners();
       }
     } catch (e) {
@@ -167,6 +183,7 @@ class HabitProvider extends ChangeNotifier {
         _habits[index] = updatedHabit;
       }
 
+      await _cache.cacheHabits(_habits);
       notifyListeners();
     } catch (e) {
       _error = e.toString();
@@ -226,6 +243,7 @@ class HabitProvider extends ChangeNotifier {
       );
 
       _habits[index] = updatedHabit;
+      await _cache.cacheHabits(_habits);
       notifyListeners();
     } catch (e) {
       _error = e.toString();
@@ -286,6 +304,7 @@ class HabitProvider extends ChangeNotifier {
       );
 
       _habits[index] = updatedHabit;
+      await _cache.cacheHabits(_habits);
       notifyListeners();
     } catch (e) {
       _error = e.toString();
@@ -333,6 +352,7 @@ class HabitProvider extends ChangeNotifier {
           }
         }
       }
+      await _cache.cacheHabits(_habits);
       notifyListeners();
     } catch (e) {
       _error = e.toString();
@@ -359,6 +379,7 @@ class HabitProvider extends ChangeNotifier {
     try {
       await _repository.deleteHabit(id);
       _habits.removeWhere((h) => h.id == id);
+      await _cache.cacheHabits(_habits);
       notifyListeners();
     } catch (e) {
       _error = e.toString();
@@ -366,7 +387,20 @@ class HabitProvider extends ChangeNotifier {
     }
   }
 
+  Future<List<HabitLog>?> getCachedHabitLogs(int habitId) =>
+      _cache.getCachedHabitLogs(habitId);
+
   Future<List<HabitLog>> getHabitHistory(int habitId) async {
-    return await _repository.getHabitLogs(habitId);
+    try {
+      final logs = await _repository.getHabitLogs(habitId);
+      await _cache.cacheHabitLogs(habitId, logs);
+      return logs;
+    } catch (e) {
+      // Fall back to cached logs on error
+      final cached = await _cache.getCachedHabitLogs(habitId);
+      if (cached != null) return cached;
+      rethrow;
+    }
   }
 }
+

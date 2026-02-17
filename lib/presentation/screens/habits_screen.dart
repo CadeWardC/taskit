@@ -131,30 +131,35 @@ class _HabitsScreenState extends State<HabitsScreen> {
                           ],
                         ),
                       )
-                    : ListView.builder(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        itemCount: provider.habits.length,
-                        itemBuilder: (context, index) {
-                          final habit = provider.habits[index];
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 16),
-                            child: InkWell(
-                              onTap: () {
-                                showDialog(
-                                  context: context,
-                                  builder: (context) =>
-                                      HabitDialog(habit: habit),
-                                );
-                              },
-                              borderRadius: BorderRadius.circular(16),
-                              child: HabitCard(
-                                habit: habit,
-                                onToggle: () => provider.toggleHabit(habit.id!),
-                                onDelete: () => provider.deleteHabit(habit.id!),
+                    : RefreshIndicator(
+                        onRefresh: () => provider.fetchHabits(),
+                        color: Theme.of(context).colorScheme.primary,
+                        backgroundColor: const Color(0xFF1E1E1E),
+                        child: ListView.builder(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          itemCount: provider.habits.length,
+                          itemBuilder: (context, index) {
+                            final habit = provider.habits[index];
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 16),
+                              child: InkWell(
+                                onTap: () {
+                                  showDialog(
+                                    context: context,
+                                    builder: (context) =>
+                                        HabitDialog(habit: habit),
+                                  );
+                                },
+                                borderRadius: BorderRadius.circular(16),
+                                child: HabitCard(
+                                  habit: habit,
+                                  onToggle: () => provider.toggleHabit(habit.id!),
+                                  onDelete: () => provider.deleteHabit(habit.id!),
+                                ),
                               ),
-                            ),
-                          );
-                        },
+                            );
+                          },
+                        ),
                       ),
               ),
             ],

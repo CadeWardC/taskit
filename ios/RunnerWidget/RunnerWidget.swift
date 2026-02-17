@@ -6,11 +6,25 @@ import AppIntents
 
 struct CachedDefaults {
     static let userIdKey = "cached_user_id"
+    static let selectedListIdKey = "selected_list_id"
 
-    /// Cached userId from the last widget config — used by ListEntityQuery
     static var userId: String? {
         get { UserDefaults.standard.string(forKey: userIdKey) }
         set { UserDefaults.standard.set(newValue, forKey: userIdKey) }
+    }
+
+    static var selectedListId: Int? {
+        get {
+            let val = UserDefaults.standard.integer(forKey: selectedListIdKey)
+            return val == 0 ? nil : val
+        }
+        set {
+            if let id = newValue {
+                UserDefaults.standard.set(id, forKey: selectedListIdKey)
+            } else {
+                UserDefaults.standard.removeObject(forKey: selectedListIdKey)
+            }
+        }
     }
 }
 
@@ -183,42 +197,40 @@ struct ToggleHabitIntent: AppIntent {
     }
 }
 
-// MARK: - List App Entity for Dynamic Dropdown
+// MARK: - List Navigation Intents
 
-struct ListAppEntity: AppEntity {
-    static var typeDisplayRepresentation: TypeDisplayRepresentation = "List"
-    static var defaultQuery = ListEntityQuery()
+struct SelectListIntent: AppIntent {
+    static var title: LocalizedStringResource = "Select List"
+    static var description: IntentDescription = "Select a list to display in the widget"
+    static var openAppWhenRun: Bool = false
 
-    var id: Int
-    var title: String
+    @Parameter(title: "List ID")
+    var listId: Int
 
-    var displayRepresentation: DisplayRepresentation {
-        DisplayRepresentation(title: "\(title)")
+    init() {}
+
+    init(listId: Int) {
+        self.listId = listId
     }
 
-    init(id: Int, title: String) {
-        self.id = id
-        self.title = title
+    func perform() async throws -> some IntentResult {
+        CachedDefaults.selectedListId = listId
+        WidgetCenter.shared.reloadAllTimelines()
+        return .result()
     }
 }
 
-struct ListEntityQuery: EntityQuery {
-    func entities(for identifiers: [ListAppEntity.ID]) async throws -> [ListAppEntity] {
-        guard let userId = CachedDefaults.userId else { return [] }
-        let lists = await DirectusAPI.fetchLists(userId: userId)
-        return lists
-            .filter { identifiers.contains($0.id) }
-            .map { ListAppEntity(id: $0.id, title: $0.title) }
-    }
+struct ClearListIntent: AppIntent {
+    static var title: LocalizedStringResource = "Back to Lists"
+    static var description: IntentDescription = "Go back to the list picker"
+    static var openAppWhenRun: Bool = false
 
-    func suggestedEntities() async throws -> [ListAppEntity] {
-        guard let userId = CachedDefaults.userId else { return [] }
-        let lists = await DirectusAPI.fetchLists(userId: userId)
-        return lists.map { ListAppEntity(id: $0.id, title: $0.title) }
-    }
+    init() {}
 
-    func defaultResult() async -> ListAppEntity? {
-        return nil
+    func perform() async throws -> some IntentResult {
+        CachedDefaults.selectedListId = nil
+        WidgetCenter.shared.reloadAllTimelines()
+        return .result()
     }
 }
 
@@ -244,19 +256,6 @@ struct TaskItWidgetIntent: WidgetConfigurationIntent {
 
     @Parameter(title: "Display Mode", default: .allTasks)
     var displayMode: DisplayMode
-
-    @Parameter(title: "List")
-    var listEntity: ListAppEntity?
-
-    static var parameterSummary: some ParameterSummary {
-        When(\TaskItWidgetIntent.$displayMode, .equalTo, .allTasks) {
-            Summary("\(\TaskItWidgetIntent.$userId) — \(\TaskItWidgetIntent.$displayMode)") {
-                \TaskItWidgetIntent.$listEntity
-            }
-        } otherwise: {
-            Summary("\(\TaskItWidgetIntent.$userId) — \(\TaskItWidgetIntent.$displayMode)")
-        }
-    }
 }
 
 // MARK: - Timeline Entry
@@ -298,7 +297,6 @@ struct Provider: AppIntentTimelineProvider {
     func timeline(for configuration: TaskItWidgetIntent, in context: Context) async -> Timeline<TaskItEntry> {
         let userId = configuration.userId
         let mode = configuration.displayMode
-        let selectedListId = configuration.listEntity?.id
 
         guard let userId = userId, !userId.isEmpty else {
             let entry = TaskItEntry(
@@ -312,8 +310,11 @@ struct Provider: AppIntentTimelineProvider {
             return Timeline(entries: [entry], policy: .after(Date().addingTimeInterval(300)))
         }
 
-        // Cache userId so ListEntityQuery can access it for the list dropdown
+        // Cache userId for potential future use
         CachedDefaults.userId = userId
+
+        // Read the in-widget list selection from cached defaults
+        let selectedListId = CachedDefaults.selectedListId
 
         async let fetchedTasks = DirectusAPI.fetchTodos(userId: userId)
         async let fetchedHabits = DirectusAPI.fetchHabits(userId: userId)
@@ -323,13 +324,18 @@ struct Provider: AppIntentTimelineProvider {
         let habits = await fetchedHabits
         let lists = await fetchedLists
 
+        // If selected list no longer exists, clear the selection
+        if let listId = selectedListId, !lists.contains(where: { $0.id == listId }) {
+            CachedDefaults.selectedListId = nil
+        }
+
         let entry = TaskItEntry(
             date: Date(),
             tasks: tasks,
             habits: habits,
             lists: lists,
             displayMode: mode,
-            selectedListId: selectedListId,
+            selectedListId: lists.contains(where: { $0.id == selectedListId ?? 0 }) ? selectedListId : nil,
             userId: userId,
             isConfigured: true
         )
@@ -436,6 +442,37 @@ struct HabitRowView: View {
     }
 }
 
+struct ListRowView: View {
+    let list: ListItem
+
+    var listColor: Color {
+        if let hex = list.color {
+            return Color(hex: hex)
+        }
+        return .purple
+    }
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Circle()
+                .fill(listColor)
+                .frame(width: 10, height: 10)
+
+            Text(list.title)
+                .font(.system(size: 14, weight: .medium))
+                .foregroundColor(.primary)
+                .lineLimit(1)
+
+            Spacer()
+
+            Image(systemName: "chevron.right")
+                .font(.system(size: 10))
+                .foregroundColor(.secondary)
+        }
+        .padding(.vertical, 4)
+    }
+}
+
 struct NotConfiguredView: View {
     var body: some View {
         VStack(spacing: 8) {
@@ -465,18 +502,7 @@ struct TaskItWidgetEntryView: View {
         } else {
             VStack(alignment: .leading, spacing: 6) {
                 // Header
-                HStack {
-                    Image(systemName: headerIcon)
-                        .foregroundColor(.purple)
-                        .font(.system(size: 12))
-                    Text(headerTitle)
-                        .font(.system(size: 13, weight: .bold))
-                        .foregroundColor(.primary)
-                    Spacer()
-                    Text(itemCount)
-                        .font(.system(size: 10))
-                        .foregroundColor(.secondary)
-                }
+                headerView
 
                 Divider()
 
@@ -487,28 +513,67 @@ struct TaskItWidgetEntryView: View {
         }
     }
 
-    var headerIcon: String {
-        switch entry.displayMode {
-        case .allTasks:
-            if entry.selectedListId != nil {
-                return "list.bullet"
-            }
-            return "checklist"
-        case .habits: return "repeat"
-        }
-    }
+    // MARK: - Header
 
-    var headerTitle: String {
+    @ViewBuilder
+    var headerView: some View {
         switch entry.displayMode {
         case .allTasks:
             if let listId = entry.selectedListId,
                let list = entry.lists.first(where: { $0.id == listId }) {
-                return list.title
+                // List selected — tappable header to go back
+                HStack {
+                    Button(intent: ClearListIntent()) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "chevron.left")
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundColor(.purple)
+                            Text(list.title)
+                                .font(.system(size: 13, weight: .bold))
+                                .foregroundColor(.primary)
+                        }
+                    }
+                    .buttonStyle(.plain)
+
+                    Spacer()
+
+                    Text(itemCount)
+                        .font(.system(size: 10))
+                        .foregroundColor(.secondary)
+                }
+            } else {
+                // No list selected — show picker header
+                HStack {
+                    Image(systemName: "list.bullet")
+                        .foregroundColor(.purple)
+                        .font(.system(size: 12))
+                    Text("Select a List")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundColor(.primary)
+                    Spacer()
+                    Text("\(entry.lists.count) lists")
+                        .font(.system(size: 10))
+                        .foregroundColor(.secondary)
+                }
             }
-            return "Tasks"
-        case .habits: return "Habits"
+
+        case .habits:
+            HStack {
+                Image(systemName: "repeat")
+                    .foregroundColor(.purple)
+                    .font(.system(size: 12))
+                Text("Habits")
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundColor(.primary)
+                Spacer()
+                Text(itemCount)
+                    .font(.system(size: 10))
+                    .foregroundColor(.secondary)
+            }
         }
     }
+
+    // MARK: - Content
 
     var filteredTasks: [TaskItem] {
         var tasks = entry.tasks.filter { !$0.is_completed }
@@ -543,15 +608,31 @@ struct TaskItWidgetEntryView: View {
     var contentView: some View {
         switch entry.displayMode {
         case .allTasks:
-            let items = Array(filteredTasks.prefix(maxItems))
-            if items.isEmpty {
-                emptyView(message: "All done!")
-            } else {
-                ForEach(items) { task in
-                    Button(intent: ToggleTaskIntent(taskId: task.id)) {
-                        TaskRowView(task: task)
+            if entry.selectedListId != nil {
+                // Show tasks for the selected list
+                let items = Array(filteredTasks.prefix(maxItems))
+                if items.isEmpty {
+                    emptyView(message: "All done!")
+                } else {
+                    ForEach(items) { task in
+                        Button(intent: ToggleTaskIntent(taskId: task.id)) {
+                            TaskRowView(task: task)
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
+                }
+            } else {
+                // Show list picker
+                let visibleLists = Array(entry.lists.prefix(maxItems))
+                if visibleLists.isEmpty {
+                    emptyView(message: "No lists yet")
+                } else {
+                    ForEach(visibleLists) { list in
+                        Button(intent: SelectListIntent(listId: list.id)) {
+                            ListRowView(list: list)
+                        }
+                        .buttonStyle(.plain)
+                    }
                 }
             }
 
@@ -623,28 +704,61 @@ struct RunnerWidget: Widget {
     }
 }
 
-
 // MARK: - Previews
 
 struct RunnerWidget_Previews: PreviewProvider {
     static var previews: some View {
+        // Preview: List picker view
         TaskItWidgetEntryView(entry: TaskItEntry(
             date: Date(),
-            tasks: [
-                TaskItem(id: 1, title: "Buy groceries", detail: "Milk, eggs, bread", is_completed: false, priority: "medium", list_id: nil, due_date: nil),
-                TaskItem(id: 2, title: "Call dentist", detail: nil, is_completed: false, priority: "high", list_id: nil, due_date: nil),
-                TaskItem(id: 3, title: "Review PR", detail: nil, is_completed: false, priority: "none", list_id: nil, due_date: nil),
+            tasks: [],
+            habits: [],
+            lists: [
+                ListItem(id: 1, title: "Work", color: "#4CAF50"),
+                ListItem(id: 2, title: "Personal", color: "#2196F3"),
+                ListItem(id: 3, title: "Shopping", color: "#FF9800"),
             ],
-            habits: [
-                HabitItem(id: 1, title: "Drink Water", detail: nil, icon: "\u{1F4A7}", color: "#2196F3", target_count: 1, current_progress: 0, current_streak: 5, best_streak: 12),
-                HabitItem(id: 2, title: "Exercise", detail: nil, icon: "\u{1F4AA}", color: "#4CAF50", target_count: 1, current_progress: 1, current_streak: 3, best_streak: 10),
-            ],
-            lists: [],
             displayMode: .allTasks,
             selectedListId: nil,
             userId: "test",
             isConfigured: true
         ))
         .previewContext(WidgetPreviewContext(family: .systemMedium))
+        .previewDisplayName("List Picker")
+
+        // Preview: Tasks view
+        TaskItWidgetEntryView(entry: TaskItEntry(
+            date: Date(),
+            tasks: [
+                TaskItem(id: 1, title: "Buy groceries", detail: "Milk, eggs, bread", is_completed: false, priority: "medium", list_id: 1, due_date: nil),
+                TaskItem(id: 2, title: "Call dentist", detail: nil, is_completed: false, priority: "high", list_id: 1, due_date: nil),
+                TaskItem(id: 3, title: "Review PR", detail: nil, is_completed: false, priority: "none", list_id: 1, due_date: nil),
+            ],
+            habits: [],
+            lists: [ListItem(id: 1, title: "Work", color: "#4CAF50")],
+            displayMode: .allTasks,
+            selectedListId: 1,
+            userId: "test",
+            isConfigured: true
+        ))
+        .previewContext(WidgetPreviewContext(family: .systemMedium))
+        .previewDisplayName("Task List")
+
+        // Preview: Habits view
+        TaskItWidgetEntryView(entry: TaskItEntry(
+            date: Date(),
+            tasks: [],
+            habits: [
+                HabitItem(id: 1, title: "Drink Water", detail: nil, icon: "\u{1F4A7}", color: "#2196F3", target_count: 1, current_progress: 0, current_streak: 5, best_streak: 12),
+                HabitItem(id: 2, title: "Exercise", detail: nil, icon: "\u{1F4AA}", color: "#4CAF50", target_count: 1, current_progress: 1, current_streak: 3, best_streak: 10),
+            ],
+            lists: [],
+            displayMode: .habits,
+            selectedListId: nil,
+            userId: "test",
+            isConfigured: true
+        ))
+        .previewContext(WidgetPreviewContext(family: .systemMedium))
+        .previewDisplayName("Habits")
     }
 }

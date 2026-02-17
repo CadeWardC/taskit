@@ -194,32 +194,37 @@ class _ListsScreenState extends State<ListsScreen> {
                           ],
                         ),
                       )
-                    : ListView.builder(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 8,
-                        ).copyWith(bottom: 100),
-                        itemCount: filteredTasks.length,
-                        itemBuilder: (context, index) {
-                          final todo = filteredTasks[index];
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: InkWell(
-                              onTap: () {
-                                showDialog(
-                                  context: context,
-                                  builder: (context) => TaskDialog(todo: todo),
-                                );
-                              },
-                              borderRadius: BorderRadius.circular(16),
-                              child: TaskCard(
-                                todo: todo,
-                                onToggle: () => provider.toggleTodo(todo.id!),
-                                onDelete: () => provider.deleteTodo(todo.id!),
+                    : RefreshIndicator(
+                        onRefresh: () => provider.fetchTodos(),
+                        color: Theme.of(context).colorScheme.primary,
+                        backgroundColor: const Color(0xFF1E1E1E),
+                        child: ListView.builder(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ).copyWith(bottom: 100),
+                          itemCount: filteredTasks.length,
+                          itemBuilder: (context, index) {
+                            final todo = filteredTasks[index];
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: InkWell(
+                                onTap: () {
+                                  showDialog(
+                                    context: context,
+                                    builder: (context) => TaskDialog(todo: todo),
+                                  );
+                                },
+                                borderRadius: BorderRadius.circular(16),
+                                child: TaskCard(
+                                  todo: todo,
+                                  onToggle: () => provider.toggleTodo(todo.id!),
+                                  onDelete: () => provider.deleteTodo(todo.id!),
+                                ),
                               ),
-                            ),
-                          );
-                        },
+                            );
+                          },
+                        ),
                       ),
               ),
             ],

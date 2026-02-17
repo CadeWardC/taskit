@@ -46,148 +46,153 @@ class _CalendarScreenState extends State<CalendarScreen> {
         );
 
         return SafeArea(
-          child: CustomScrollView(
-            slivers: [
-              // Header & Navigation
-              SliverToBoxAdapter(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Text(
-                        'Calendar',
-                        style: Theme.of(context).textTheme.headlineMedium
-                            ?.copyWith(fontWeight: FontWeight.bold),
+          child: RefreshIndicator(
+            onRefresh: () => provider.fetchTodos(),
+            color: Theme.of(context).colorScheme.primary,
+            backgroundColor: const Color(0xFF1E1E1E),
+            child: CustomScrollView(
+              slivers: [
+                // Header & Navigation
+                SliverToBoxAdapter(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Text(
+                          'Calendar',
+                          style: Theme.of(context).textTheme.headlineMedium
+                              ?.copyWith(fontWeight: FontWeight.bold),
+                        ),
                       ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            IconButton(
+                              onPressed: () {
+                                setState(() {
+                                  _focusedMonth = DateTime(
+                                    _focusedMonth.year,
+                                    _focusedMonth.month - 1,
+                                  );
+                                });
+                              },
+                              icon: const Icon(Icons.chevron_left),
+                            ),
+                            Text(
+                              DateFormat('MMMM yyyy').format(_focusedMonth),
+                              style: Theme.of(context).textTheme.titleLarge
+                                  ?.copyWith(fontWeight: FontWeight.w600),
+                            ),
+                            IconButton(
+                              onPressed: () {
+                                setState(() {
+                                  _focusedMonth = DateTime(
+                                    _focusedMonth.year,
+                                    _focusedMonth.month + 1,
+                                  );
+                                });
+                              },
+                              icon: const Icon(Icons.chevron_right),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      // Weekday headers
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Row(
+                          children:
+                              ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+                                  .map(
+                                    (day) => Expanded(
+                                      child: Center(
+                                        child: Text(
+                                          day,
+                                          style: TextStyle(
+                                            color: Colors.white.withValues(
+                                              alpha: 0.5,
+                                            ),
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  )
+                                  .toList(),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      // Calendar grid
+                      _buildCalendarGrid(provider.todos),
+                      const SizedBox(height: 16),
+                      // Selected date header
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Text(
+                          DateFormat('EEEE, MMM d').format(_selectedDate),
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(
+                                fontWeight: FontWeight.w600,
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                    ],
+                  ),
+                ),
+
+                // Task List
+                if (tasksForSelected.isEmpty)
+                  SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          IconButton(
-                            onPressed: () {
-                              setState(() {
-                                _focusedMonth = DateTime(
-                                  _focusedMonth.year,
-                                  _focusedMonth.month - 1,
-                                );
-                              });
-                            },
-                            icon: const Icon(Icons.chevron_left),
+                          Icon(
+                            Icons.event_available,
+                            size: 48,
+                            color: Colors.white.withValues(alpha: 0.3),
                           ),
+                          const SizedBox(height: 12),
                           Text(
-                            DateFormat('MMMM yyyy').format(_focusedMonth),
-                            style: Theme.of(context).textTheme.titleLarge
-                                ?.copyWith(fontWeight: FontWeight.w600),
-                          ),
-                          IconButton(
-                            onPressed: () {
-                              setState(() {
-                                _focusedMonth = DateTime(
-                                  _focusedMonth.year,
-                                  _focusedMonth.month + 1,
-                                );
-                              });
-                            },
-                            icon: const Icon(Icons.chevron_right),
+                            'No tasks for this day',
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.5),
+                              fontSize: 16,
+                            ),
                           ),
                         ],
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    // Weekday headers
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Row(
-                        children:
-                            ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-                                .map(
-                                  (day) => Expanded(
-                                    child: Center(
-                                      child: Text(
-                                        day,
-                                        style: TextStyle(
-                                          color: Colors.white.withValues(
-                                            alpha: 0.5,
-                                          ),
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                )
-                                .toList(),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    // Calendar grid
-                    _buildCalendarGrid(provider.todos),
-                    const SizedBox(height: 16),
-                    // Selected date header
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Text(
-                        DateFormat('EEEE, MMM d').format(_selectedDate),
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(
-                              fontWeight: FontWeight.w600,
-                              color: Theme.of(context).colorScheme.primary,
-                            ),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                  ],
-                ),
-              ),
-
-              // Task List
-              if (tasksForSelected.isEmpty)
-                SliverFillRemaining(
-                  hasScrollBody: false,
-                  child: Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.event_available,
-                          size: 48,
-                          color: Colors.white.withValues(alpha: 0.3),
+                  )
+                else
+                  SliverList(
+                    delegate: SliverChildBuilderDelegate((context, index) {
+                      final todo = tasksForSelected[index];
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 6,
                         ),
-                        const SizedBox(height: 12),
-                        Text(
-                          'No tasks for this day',
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.5),
-                            fontSize: 16,
-                          ),
+                        child: TaskCard(
+                          todo: todo,
+                          onToggle: () => provider.toggleTodo(todo.id!),
+                          onDelete: () => provider.deleteTodo(todo.id!),
                         ),
-                      ],
-                    ),
+                      );
+                    }, childCount: tasksForSelected.length),
                   ),
-                )
-              else
-                SliverList(
-                  delegate: SliverChildBuilderDelegate((context, index) {
-                    final todo = tasksForSelected[index];
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 6,
-                      ),
-                      child: TaskCard(
-                        todo: todo,
-                        onToggle: () => provider.toggleTodo(todo.id!),
-                        onDelete: () => provider.deleteTodo(todo.id!),
-                      ),
-                    );
-                  }, childCount: tasksForSelected.length),
-                ),
 
-              const SliverPadding(padding: EdgeInsets.only(bottom: 24)),
-            ],
+                const SliverPadding(padding: EdgeInsets.only(bottom: 24)),
+              ],
+            ),
           ),
         );
       },

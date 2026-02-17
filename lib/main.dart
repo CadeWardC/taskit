@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'core/theme.dart';
 import 'data/services/directus_service.dart';
+import 'data/services/local_cache_service.dart';
 import 'data/repositories/todo_repository.dart';
 import 'data/repositories/habit_repository.dart';
 import 'presentation/providers/todo_provider.dart';
@@ -21,6 +22,7 @@ class TaskItApp extends StatelessWidget {
   Widget build(BuildContext context) {
     // Initialize dependencies
     final directusService = DirectusService();
+    final localCacheService = LocalCacheService();
     final todoRepository = TodoRepository(directusService);
     final habitRepository = HabitRepository(directusService);
 
@@ -30,10 +32,10 @@ class TaskItApp extends StatelessWidget {
           create: (_) => AuthProvider(directusService),
         ),
         ChangeNotifierProvider(
-          create: (_) => TodoProvider(todoRepository),
+          create: (_) => TodoProvider(todoRepository, localCacheService),
         ),
         ChangeNotifierProvider(
-          create: (_) => HabitProvider(habitRepository),
+          create: (_) => HabitProvider(habitRepository, localCacheService),
         ),
       ],
       child: MaterialApp(
@@ -59,3 +61,4 @@ class TaskItApp extends StatelessWidget {
     );
   }
 }
+

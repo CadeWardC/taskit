@@ -4,10 +4,12 @@ import 'package:home_widget/home_widget.dart';
 import '../../data/models/todo.dart';
 import '../../data/models/todo_list.dart';
 import '../../data/repositories/todo_repository.dart';
+import '../../data/services/local_cache_service.dart';
 import 'package:flutter/foundation.dart';
 
 class TodoProvider extends ChangeNotifier {
   final TodoRepository _repository;
+  final LocalCacheService _cache;
   List<Todo> _todos = [];
   List<TodoList> _lists = [];
   bool _isLoading = false;
@@ -27,7 +29,7 @@ class TodoProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  TodoProvider(this._repository);
+  TodoProvider(this._repository, this._cache);
 
   /// Get recurring tasks
   List<Todo> get recurringTasks => _todos.where((t) => t.isRecurring).toList();
@@ -44,6 +46,19 @@ class TodoProvider extends ChangeNotifier {
     _isLoading = true;
     _error = null;
     notifyListeners();
+
+    // Load cached data first for instant UI
+    if (_todos.isEmpty) {
+      final cachedTodos = await _cache.getCachedTodos();
+      final cachedLists = await _cache.getCachedLists();
+      if (cachedTodos != null) _todos = cachedTodos;
+      if (cachedLists != null) _lists = cachedLists;
+      if (_todos.isNotEmpty || _lists.isNotEmpty) {
+        _isLoading = false;
+        notifyListeners();
+        _isLoading = true;
+      }
+    }
 
     try {
       final results = await Future.wait([
@@ -69,16 +84,7 @@ class TodoProvider extends ChangeNotifier {
         _todos.add(todo);
       }
 
-      // Sort: Incomplete first, then by ID (newest last usually, or we can sort by ID desc for newest first)
-      // The user asked for "completed at the bottom".
-      _todos.sort((a, b) {
-        if (a.isCompleted != b.isCompleted) {
-          return a.isCompleted ? 1 : -1; // Completed items go to the bottom
-        }
-        // Secondary sort: by ID (assuming higher ID = newer)
-        // Or duplicate existing order. Let's sort by ID descending (newest on top)
-        return (b.id ?? 0).compareTo(a.id ?? 0);
-      });
+      _sortTodos();
 
       debugPrint('Fetched ${_todos.length} todos and ${_lists.length} lists for user');
       
@@ -90,6 +96,7 @@ class TodoProvider extends ChangeNotifier {
       }
 
       await _updateWidgetData();
+      await _saveCache();
     } catch (e) {
       _error = e.toString();
     } finally {
@@ -123,14 +130,9 @@ class TodoProvider extends ChangeNotifier {
         customRecurringDays: customRecurringDays,
       );
       _todos.add(newTodo);
-      // Re-sort
-      _todos.sort((a, b) {
-        if (a.isCompleted != b.isCompleted) {
-          return a.isCompleted ? 1 : -1;
-        }
-        return (b.id ?? 0).compareTo(a.id ?? 0);
-      });
+      _sortTodos();
       await _updateWidgetData();
+      await _saveCache();
       notifyListeners();
     } catch (e) {
       _error = e.toString();
@@ -169,14 +171,9 @@ class TodoProvider extends ChangeNotifier {
       final index = _todos.indexWhere((t) => t.id == id);
       if (index != -1) {
         _todos[index] = updatedTodo;
-        // Re-sort
-        _todos.sort((a, b) {
-          if (a.isCompleted != b.isCompleted) {
-            return a.isCompleted ? 1 : -1;
-          }
-          return (b.id ?? 0).compareTo(a.id ?? 0);
-        });
+        _sortTodos();
         await _updateWidgetData();
+        await _saveCache();
         notifyListeners();
       }
     } catch (e) {
@@ -189,6 +186,7 @@ class TodoProvider extends ChangeNotifier {
     try {
       final newList = await _repository.addList(title, color);
       _lists.add(newList);
+      await _saveCache();
       notifyListeners();
     } catch (e) {
       _error = e.toString();
@@ -204,6 +202,7 @@ class TodoProvider extends ChangeNotifier {
       if (_selectedListId == id) {
         _selectedListId = null;
       }
+      await _saveCache();
       notifyListeners();
     } catch (e) {
       _error = e.toString();
@@ -221,14 +220,9 @@ class TodoProvider extends ChangeNotifier {
           isCompleted: !todo.isCompleted,
         );
         _todos[index] = updatedTodo;
-        // Re-sort
-        _todos.sort((a, b) {
-          if (a.isCompleted != b.isCompleted) {
-            return a.isCompleted ? 1 : -1;
-          }
-          return (b.id ?? 0).compareTo(a.id ?? 0);
-        });
+        _sortTodos();
         await _updateWidgetData();
+        await _saveCache();
         notifyListeners();
       }
     } catch (e) {
@@ -242,11 +236,26 @@ class TodoProvider extends ChangeNotifier {
       await _repository.deleteTodo(id);
       _todos.removeWhere((t) => t.id == id);
       await _updateWidgetData();
+      await _saveCache();
       notifyListeners();
     } catch (e) {
       _error = e.toString();
       notifyListeners();
     }
+  }
+
+  void _sortTodos() {
+    _todos.sort((a, b) {
+      if (a.isCompleted != b.isCompleted) {
+        return a.isCompleted ? 1 : -1;
+      }
+      return (b.id ?? 0).compareTo(a.id ?? 0);
+    });
+  }
+
+  Future<void> _saveCache() async {
+    await _cache.cacheTodos(_todos);
+    await _cache.cacheLists(_lists);
   }
 
   Future<void> _updateWidgetData() async {
