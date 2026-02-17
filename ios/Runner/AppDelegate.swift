@@ -36,7 +36,9 @@ import WidgetKit
           defaults.synchronize()
 
           // Tell WidgetKit to refresh
-          WidgetCenter.shared.reloadAllTimelines()
+          if #available(iOS 14.0, *) {
+            WidgetCenter.shared.reloadAllTimelines()
+          }
           result(true)
         } else {
           result(FlutterError(code: "INVALID_ARGS", message: "Invalid arguments", details: nil))
@@ -57,7 +59,9 @@ import WidgetKit
           defaults.removeObject(forKey: "widget_display_mode")
           defaults.removeObject(forKey: "widget_list_id")
           defaults.synchronize()
-          WidgetCenter.shared.reloadAllTimelines()
+          if #available(iOS 14.0, *) {
+            WidgetCenter.shared.reloadAllTimelines()
+          }
         }
         result(true)
 
