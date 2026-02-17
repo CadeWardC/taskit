@@ -615,7 +615,7 @@ struct RunnerWidget: Widget {
     var body: some WidgetConfiguration {
         AppIntentConfiguration(kind: kind, intent: TaskItWidgetIntent.self, provider: Provider()) { entry in
             TaskItWidgetEntryView(entry: entry)
-                .widgetBackground()
+                .containerBackground(.fill.tertiary, for: .widget)
         }
         .configurationDisplayName("TaskIt")
         .description("View your tasks and habits at a glance.")
@@ -623,16 +623,6 @@ struct RunnerWidget: Widget {
     }
 }
 
-// iOS 17+ containerBackground compatibility
-extension View {
-    func widgetBackground() -> some View {
-        if #available(iOSApplicationExtension 17.0, *) {
-            return AnyView(self.containerBackground(.fill.tertiary, for: .widget))
-        } else {
-            return AnyView(self.background(Color(.systemBackground)))
-        }
-    }
-}
 
 // MARK: - Previews
 
