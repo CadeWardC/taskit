@@ -249,12 +249,12 @@ struct TaskItWidgetIntent: WidgetConfigurationIntent {
     var listEntity: ListAppEntity?
 
     static var parameterSummary: some ParameterSummary {
-        When(\.$displayMode, .equalTo, .allTasks) {
-            Summary("\(\.$userId) — \(\.$displayMode)") {
-                \.$listEntity
+        When(\TaskItWidgetIntent.$displayMode, .equalTo, .allTasks) {
+            Summary("\(\TaskItWidgetIntent.$userId) — \(\TaskItWidgetIntent.$displayMode)") {
+                \TaskItWidgetIntent.$listEntity
             }
         } otherwise: {
-            Summary("\(\.$userId) — \(\.$displayMode)")
+            Summary("\(\TaskItWidgetIntent.$userId) — \(\TaskItWidgetIntent.$displayMode)")
         }
     }
 }
