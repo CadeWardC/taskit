@@ -83,9 +83,11 @@ class DirectusService {
     int? duration,
     String priority = 'none',
     int? listId,
+
     String? recurringFrequency,
     int repeatInterval = 1,
     List<int>? customRecurringDays,
+    int? order,
   }) async {
     try {
       final response = await _dio.post('/items/todos', data: {
@@ -99,6 +101,7 @@ class DirectusService {
         'recurring_frequency': recurringFrequency,
         'repeat_interval': repeatInterval,
         'custom_recurring_days': customRecurringDays,
+        'order': order,
         'user_id': _currentUserId,
       });
       return Todo.fromJson(response.data['data']);
@@ -120,6 +123,7 @@ class DirectusService {
     String? recurringFrequency,
     int? repeatInterval,
     List<int>? customRecurringDays,
+    int? order,
   }) async {
     try {
       final Map<String, dynamic> data = {};
@@ -133,6 +137,7 @@ class DirectusService {
       if (recurringFrequency != null) data['recurring_frequency'] = recurringFrequency;
       if (repeatInterval != null) data['repeat_interval'] = repeatInterval;
       if (customRecurringDays != null) data['custom_recurring_days'] = customRecurringDays;
+      if (order != null) data['order'] = order;
 
       final response = await _dio.patch('/items/todos/$id', data: data);
       return Todo.fromJson(response.data['data']);
@@ -167,11 +172,13 @@ class DirectusService {
     }
   }
 
-  Future<TodoList> createList(String title, String color) async {
+  Future<TodoList> createList(String title, String color, {int? order, String sortOption = 'custom'}) async {
     try {
       final response = await _dio.post('/items/lists', data: {
         'title': title,
         'color': color,
+        'order': order,
+        'sort_option': sortOption,
         'user_id': _currentUserId,
       });
       return TodoList.fromJson(response.data['data']);
@@ -187,6 +194,21 @@ class DirectusService {
       await _dio.delete('/items/lists/$id');
     } catch (e) {
       throw Exception('Failed to delete list: $e');
+    }
+  }
+
+  Future<TodoList> updateList(int id, {String? title, String? color, int? order, String? sortOption}) async {
+    try {
+      final Map<String, dynamic> data = {};
+      if (title != null) data['title'] = title;
+      if (color != null) data['color'] = color;
+      if (order != null) data['order'] = order;
+      if (sortOption != null) data['sort_option'] = sortOption;
+
+      final response = await _dio.patch('/items/lists/$id', data: data);
+      return TodoList.fromJson(response.data['data']);
+    } catch (e) {
+      throw Exception('Failed to update list: $e');
     }
   }
 

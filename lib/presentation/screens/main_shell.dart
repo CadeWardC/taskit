@@ -3,10 +3,10 @@ import 'package:provider/provider.dart';
 import '../providers/todo_provider.dart';
 import '../providers/habit_provider.dart';
 import '../widgets/responsive_scaffold.dart';
+import 'home_screen.dart';
 import 'lists_screen.dart';
 import 'calendar_screen.dart';
 import 'habits_screen.dart';
-import 'reports_screen.dart';
 import 'settings_screen.dart';
 import '../widgets/task_dialog.dart';
 import '../widgets/habit_dialog.dart';
@@ -57,6 +57,11 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
 
   final List<NavigationDestination> _navItems = const [
     NavigationDestination(
+      icon: Icon(Icons.wb_sunny_outlined),
+      selectedIcon: Icon(Icons.wb_sunny),
+      label: 'Today',
+    ),
+    NavigationDestination(
       icon: Icon(Icons.list_alt_outlined),
       selectedIcon: Icon(Icons.list_alt),
       label: 'Lists',
@@ -72,18 +77,11 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
       label: 'Habits',
     ),
     NavigationDestination(
-      icon: Icon(Icons.bar_chart_outlined),
-      selectedIcon: Icon(Icons.bar_chart),
-      label: 'Reports',
-    ),
-    NavigationDestination(
       icon: Icon(Icons.settings_outlined),
       selectedIcon: Icon(Icons.settings),
       label: 'Settings',
     ),
   ];
-
-
 
   @override
   Widget build(BuildContext context) {
@@ -91,11 +89,11 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
       selectedIndex: _selectedIndex,
       onDestinationSelected: (index) => setState(() => _selectedIndex = index),
       navItems: _navItems,
-      destinations: const [
+      destinations: [
+        HomeScreen(), // Today
         ListsScreen(),
         CalendarScreen(),
         HabitsScreen(),
-        ReportsScreen(),
         SettingsScreen(),
       ],
       floatingActionButton: _buildFloatingActionButton(context),
@@ -103,11 +101,11 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   }
 
   Widget? _buildFloatingActionButton(BuildContext context) {
-    // Don't show on Settings or Reports tab
-    if (_selectedIndex >= 3) return null;
+    // Settings (index 4) has no FAB
+    if (_selectedIndex == 4) return null;
     
-    // Habits tab - show "New Habit" button
-    if (_selectedIndex == 2) {
+    // Habits (index 3) - show "New Habit" button
+    if (_selectedIndex == 3) {
       return FloatingActionButton.extended(
         onPressed: () {
           showDialog(
@@ -122,7 +120,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
       );
     }
     
-    // Lists and Calendar tabs - show "New Task" button
+    // Today, Lists, Calendar - show "New Task" button
     return FloatingActionButton.extended(
       onPressed: () {
         final selectedListId =

@@ -6,23 +6,20 @@ import '../../data/models/habit.dart';
 import '../../data/models/habit_log.dart';
 import '../../core/theme.dart';
 
-class ReportsScreen extends StatefulWidget {
-  const ReportsScreen({super.key});
+class ReportsView extends StatefulWidget {
+  const ReportsView({super.key});
 
   @override
-  State<ReportsScreen> createState() => _ReportsScreenState();
+  State<ReportsView> createState() => _ReportsViewState();
 }
 
-class _ReportsScreenState extends State<ReportsScreen> {
+class _ReportsViewState extends State<ReportsView> {
   Map<int, List<HabitLog>> _logsPerHabit = {};
   bool _loading = true;
 
   @override
   void initState() {
     super.initState();
-    // Ensure habits are fetched
-    Future.microtask(() =>
-        Provider.of<HabitProvider>(context, listen: false).fetchHabits());
     _loadLogs();
   }
 
@@ -31,13 +28,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
     
     // First pass: Load from cache
     final Map<int, List<HabitLog>> cachedLogs = {};
-    // Note: Provider habits might be empty initially if fetchHabits hasn't completed
-    // but caching ensures we might have them faster.
-    
-    // We can iterate cache directly if exposure existed, but stick to iterating current habits
-    // or we wait for habits?
-    // Let's just try to load what we can.
-    
     for (final habit in provider.habits) {
       if (habit.id != null) {
         final logs = await provider.getCachedHabitLogs(habit.id!);
@@ -59,7 +49,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
         try {
           freshLogs[habit.id!] = await provider.getHabitHistory(habit.id!);
         } catch (_) {
-          // Keep existing/cached logs on error
           freshLogs[habit.id!] = _logsPerHabit[habit.id!] ?? [];
         }
       }
@@ -77,7 +66,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
   Widget build(BuildContext context) {
     return Consumer<HabitProvider>(
       builder: (context, provider, _) {
-        if (_loading) {
+        if (_loading && _logsPerHabit.isEmpty) {
           return const Center(child: CircularProgressIndicator());
         }
 
@@ -104,7 +93,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
         return RefreshIndicator(
           onRefresh: _loadLogs,
           child: ListView(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(16).copyWith(bottom: 100),
             children: [
               // Summary Cards
               _buildSummaryCards(habits),
@@ -137,7 +126,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
     final longestStreak = habits.fold<int>(
         0, (max, h) => h.bestStreak > max ? h.bestStreak : max);
 
-    // Calculate completion rate for past 7 days
     final now = DateTime.now();
     final weekAgo = now.subtract(const Duration(days: 7));
     int totalPossible = totalHabits * 7;
@@ -174,7 +162,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
             Icon(icon, color: color, size: 22),
             const SizedBox(height: 6),
             Text(value,
-                style: TextStyle(
+                style: const TextStyle(
                     color: Colors.white,
                     fontSize: 20,
                     fontWeight: FontWeight.bold)),
@@ -192,7 +180,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
     final now = DateTime.now();
     final dayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-    // Count completions per day of the week (last 7 days)
     final completionsPerDay = List<double>.filled(7, 0);
     for (final habit in habits) {
       final logs = _logsPerHabit[habit.id] ?? [];
@@ -279,7 +266,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
         ? Color(int.parse(habit.color!.replaceFirst('#', '0xFF')))
         : const Color(0xFF6C63FF);
 
-    // Last 30 days completion grid
     final now = DateTime.now();
     final last30Days = List.generate(30, (i) {
       final day = now.subtract(Duration(days: 29 - i));
@@ -297,7 +283,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header
           Row(
             children: [
               if (habit.icon != null && habit.icon!.isNotEmpty)
@@ -317,8 +302,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
             ],
           ),
           const SizedBox(height: 12),
-
-          // Stats row
           Row(
             children: [
               _buildMiniStat(Icons.local_fire_department, '${habit.currentStreak}',
@@ -332,8 +315,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
             ],
           ),
           const SizedBox(height: 14),
-
-          // 30-day completion grid
           Text('Last 30 Days',
               style: TextStyle(
                   color: Colors.white.withValues(alpha: 0.5), fontSize: 11)),

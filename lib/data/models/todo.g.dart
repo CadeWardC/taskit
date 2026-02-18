@@ -14,6 +14,9 @@ Todo _$TodoFromJson(Map<String, dynamic> json) => Todo(
   dueDate: json['due_date'] == null
       ? null
       : DateTime.parse(json['due_date'] as String),
+  dateUpdated: json['date_updated'] == null
+      ? null
+      : DateTime.parse(json['date_updated'] as String),
   duration: (json['duration'] as num?)?.toInt(),
   priority: json['priority'] as String? ?? 'none',
   listId: (json['list_id'] as num?)?.toInt(),
@@ -22,6 +25,7 @@ Todo _$TodoFromJson(Map<String, dynamic> json) => Todo(
   customRecurringDays: (json['custom_recurring_days'] as List<dynamic>?)
       ?.map((e) => (e as num).toInt())
       .toList(),
+  order: (json['order'] as num?)?.toInt(),
 );
 
 Map<String, dynamic> _$TodoToJson(Todo instance) => <String, dynamic>{
@@ -30,10 +34,12 @@ Map<String, dynamic> _$TodoToJson(Todo instance) => <String, dynamic>{
   'detail': instance.detail,
   'is_completed': instance.isCompleted,
   'due_date': instance.dueDate?.toIso8601String(),
+  'date_updated': instance.dateUpdated?.toIso8601String(),
   'duration': instance.duration,
   'priority': instance.priority,
   'list_id': instance.listId,
   'recurring_frequency': instance.recurringFrequency,
   'repeat_interval': instance.repeatInterval,
   'custom_recurring_days': instance.customRecurringDays,
+  'order': instance.order,
 };

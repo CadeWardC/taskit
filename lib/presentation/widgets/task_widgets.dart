@@ -25,115 +25,177 @@ class GlassContainer extends StatelessWidget {
   }
 }
 
-class TaskCard extends StatelessWidget {
+class TaskCard extends StatefulWidget {
   final Todo todo;
   final VoidCallback onToggle;
   final VoidCallback onDelete;
+  final Color? activeColor;
 
   const TaskCard({
     super.key,
     required this.todo,
     required this.onToggle,
     required this.onDelete,
+    this.activeColor,
   });
 
   @override
-  Widget build(BuildContext context) {
-    final priorityColor = AppTheme.getPriorityColor(todo.priority);
+  State<TaskCard> createState() => _TaskCardState();
+}
+
+class _TaskCardState extends State<TaskCard> with SingleTickerProviderStateMixin {
+  bool _isChecking = false;
+  late AnimationController _controller;
+  late Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+      value: 1.0, // Start fully visible
+    );
+    _animation = CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeInOut,
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _handleToggle(bool? value) {
+    if (value == null) return;
     
-    return GlassContainer(
-      opacity: todo.isCompleted ? 0.05 : 0.1,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+    if (widget.todo.isCompleted) {
+      // Unchecking - do immediately
+      widget.onToggle();
+    } else {
+      // Checking - animate then toggle
+      setState(() => _isChecking = true);
+      
+      // Reverse animation to shrink height
+      _controller.reverse().then((_) {
+        if (mounted) {
+           widget.onToggle();
+        }
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final priorityColor = AppTheme.getPriorityColor(widget.todo.priority);
+    final isDone = widget.todo.isCompleted || _isChecking;
+    
+    // Wrap entire card in SizeTransition for smooth exit
+    return SizeTransition(
+      sizeFactor: _animation,
+      axis: Axis.vertical,
+      axisAlignment: -1.0, // Anchor at top, shrink from bottom
+      child: AnimatedOpacity(
+        duration: const Duration(milliseconds: 300),
+        opacity: _isChecking ? 0.0 : (widget.todo.isCompleted ? 0.5 : 1.0),
+        curve: Curves.easeOut,
+        child: GlassContainer(
+          opacity: widget.todo.isCompleted ? 0.05 : 0.1,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Checkbox(
-                value: todo.isCompleted,
-                onChanged: (_) => onToggle(),
-                activeColor: Theme.of(context).colorScheme.primary,
-                side: BorderSide(color: Colors.white.withValues(alpha: 0.5)),
-              ),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      todo.title,
-                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        decoration: todo.isCompleted ? TextDecoration.lineThrough : null,
-                        color: todo.isCompleted ? Colors.white54 : Colors.white,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                     if (todo.detail != null && todo.detail!.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 2),
-                        child: Text(
-                          todo.detail!,
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                             color: Colors.white70,
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-              Container(
-                width: 12,
-                height: 12,
-                decoration: BoxDecoration(
-                  color: priorityColor,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                     BoxShadow(color: priorityColor.withValues(alpha: 0.4), blurRadius: 4),
-                  ]
-                ),
-              ),
-              const SizedBox(width: 8),
-              IconButton(
-                icon: const Icon(Icons.delete_outline, color: Colors.white30),
-                onPressed: onDelete,
-              ),
-            ],
-          ),
-          if (todo.dueDate != null || todo.duration != null)
-            Padding(
-              padding: const EdgeInsets.only(left: 48, right: 16, bottom: 4),
-              child: Row(
+              Row(
                 children: [
-                  if (todo.dueDate != null) ...[
-                    const Icon(Icons.calendar_today, size: 12, color: Colors.white38),
-                    const SizedBox(width: 4),
-                    Text(
-                      () {
-                        final date = todo.dueDate!.toLocal();
-                        final dateStr = '${date.month}/${date.day}';
-                        if (date.hour != 0 || date.minute != 0) {
-                          final timeStr = TimeOfDay.fromDateTime(date).format(context);
-                          return '$dateStr $timeStr';
-                        }
-                        return dateStr;
-                      }(),
-                      style: const TextStyle(color: Colors.white38, fontSize: 12),
+                  Checkbox(
+                    value: isDone,
+                    onChanged: _handleToggle,
+                    activeColor: widget.activeColor ?? Theme.of(context).colorScheme.primary,
+                    side: BorderSide(color: Colors.white.withValues(alpha: 0.5)),
+                  ),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          widget.todo.title,
+                          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                            decoration: isDone ? TextDecoration.lineThrough : null,
+                            color: isDone ? Colors.white54 : Colors.white,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                         if (widget.todo.detail != null && widget.todo.detail!.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 2),
+                            child: Text(
+                              widget.todo.detail!,
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                 color: Colors.white70,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                      ],
                     ),
-                    const SizedBox(width: 12),
-                  ],
-                  if (todo.duration != null) ...[
-                     const Icon(Icons.timer, size: 12, color: Colors.white38),
-                     const SizedBox(width: 4),
-                     Text(
-                       '${todo.duration} min',
-                       style: const TextStyle(color: Colors.white38, fontSize: 12),
-                     ),
-                  ]
+                  ),
+                  Container(
+                    width: 12,
+                    height: 12,
+                    decoration: BoxDecoration(
+                      color: priorityColor,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                         BoxShadow(color: priorityColor.withValues(alpha: 0.4), blurRadius: 4),
+                      ]
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline, color: Colors.white30),
+                    onPressed: widget.onDelete,
+                  ),
                 ],
               ),
-            ),
-        ],
+              if (widget.todo.dueDate != null || widget.todo.duration != null)
+                Padding(
+                  padding: const EdgeInsets.only(left: 48, right: 16, bottom: 4),
+                  child: Row(
+                    children: [
+                      if (widget.todo.dueDate != null) ...[
+                        const Icon(Icons.calendar_today, size: 12, color: Colors.white38),
+                        const SizedBox(width: 4),
+                        Text(
+                          () {
+                            final date = widget.todo.dueDate!.toLocal();
+                            final dateStr = '${date.month}/${date.day}';
+                            if (date.hour != 0 || date.minute != 0) {
+                              final timeStr = TimeOfDay.fromDateTime(date).format(context);
+                              return '$dateStr $timeStr';
+                            }
+                            return dateStr;
+                          }(),
+                          style: const TextStyle(color: Colors.white38, fontSize: 12),
+                        ),
+                        const SizedBox(width: 12),
+                      ],
+                      if (widget.todo.duration != null) ...[
+                         const Icon(Icons.timer, size: 12, color: Colors.white38),
+                         const SizedBox(width: 4),
+                         Text(
+                           '${widget.todo.duration} min',
+                           style: const TextStyle(color: Colors.white38, fontSize: 12),
+                         ),
+                      ]
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        ).animate().fadeIn().slideX(begin: 0.2, end: 0),
       ),
-    ).animate().fadeIn().slideX(begin: 0.2, end: 0);
+    );
   }
 }

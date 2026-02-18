@@ -36,6 +36,9 @@ class Todo {
   @JsonKey(name: 'custom_recurring_days')
   final List<int>? customRecurringDays;
 
+  // Order for custom sorting
+  final int? order;
+
   Todo({
     this.id,
     required this.title,
@@ -49,6 +52,7 @@ class Todo {
     this.recurringFrequency,
     this.repeatInterval = 1,
     this.customRecurringDays,
+    this.order,
   });
 
   factory Todo.fromJson(Map<String, dynamic> json) => _$TodoFromJson(json);
@@ -67,6 +71,7 @@ class Todo {
     String? recurringFrequency,
     int? repeatInterval,
     List<int>? customRecurringDays,
+    int? order,
   }) {
     return Todo(
       id: id ?? this.id,
@@ -81,6 +86,7 @@ class Todo {
       recurringFrequency: recurringFrequency ?? this.recurringFrequency,
       repeatInterval: repeatInterval ?? this.repeatInterval,
       customRecurringDays: customRecurringDays ?? this.customRecurringDays,
+      order: order ?? this.order,
     );
   }
 

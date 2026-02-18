@@ -56,7 +56,7 @@ class _ColorSelectorState extends State<ColorSelector> {
           ),
           TextButton(
             onPressed: () {
-               final hex = '#${pickerColor.value.toRadixString(16).padLeft(8, '0').substring(2).toUpperCase()}';
+               final hex = '#${pickerColor.toARGB32().toRadixString(16).padLeft(8, '0').substring(2).toUpperCase()}';
                widget.onColorChanged(hex);
                Navigator.of(context).pop();
             },
