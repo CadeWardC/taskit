@@ -291,6 +291,19 @@ struct ClearListIntent: AppIntent {
     }
 }
 
+struct RefreshWidgetIntent: AppIntent {
+    static var title: LocalizedStringResource = "Refresh Widget"
+    static var description: IntentDescription = "Refresh data from the server"
+    static var openAppWhenRun: Bool = false
+
+    init() {}
+
+    func perform() async throws -> some IntentResult {
+        WidgetCenter.shared.reloadAllTimelines()
+        return .result()
+    }
+}
+
 // MARK: - App Intent Configuration
 
 enum DisplayMode: String, AppEnum {
@@ -599,6 +612,14 @@ struct TaskItWidgetEntryView: View {
 
                     Spacer()
 
+                    Button(intent: RefreshWidgetIntent()) {
+                        Image(systemName: "arrow.clockwise")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundColor(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.trailing, 4)
+
                     Text(itemCount)
                         .font(.system(size: 10))
                         .foregroundColor(.secondary)
@@ -613,6 +634,15 @@ struct TaskItWidgetEntryView: View {
                         .font(.system(size: 13, weight: .bold))
                         .foregroundColor(.primary)
                     Spacer()
+                    
+                    Button(intent: RefreshWidgetIntent()) {
+                        Image(systemName: "arrow.clockwise")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundColor(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.trailing, 4)
+                    
                     Text("\(entry.lists.count) lists")
                         .font(.system(size: 10))
                         .foregroundColor(.secondary)
@@ -628,6 +658,15 @@ struct TaskItWidgetEntryView: View {
                     .font(.system(size: 13, weight: .bold))
                     .foregroundColor(.primary)
                 Spacer()
+                
+                Button(intent: RefreshWidgetIntent()) {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundColor(.secondary)
+                }
+                .buttonStyle(.plain)
+                .padding(.trailing, 4)
+                
                 Text(itemCount)
                     .font(.system(size: 10))
                     .foregroundColor(.secondary)

@@ -413,6 +413,12 @@ class HabitProvider extends ChangeNotifier {
     // Called at start of new day to reset progress for daily habits
     try {
       final today = DateTime.now();
+      
+      final lastReset = await _cache.getLastDailyReset();
+      if (lastReset != null && _isSameDay(lastReset, today)) {
+        return; // Already processed resets for today
+      }
+      
       final yesterday = today.subtract(const Duration(days: 1));
 
       for (int i = 0; i < _habits.length; i++) {
@@ -476,6 +482,7 @@ class HabitProvider extends ChangeNotifier {
           }
         }
       }
+      await _cache.setLastDailyReset(today);
       await _cache.cacheHabits(_habits);
       notifyListeners();
     } catch (e) {

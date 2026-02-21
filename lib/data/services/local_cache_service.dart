@@ -12,6 +12,21 @@ class LocalCacheService {
   static const _keyLists = 'cache_lists';
   static const _keyHabits = 'cache_habits';
   static const _keyHabitLogsPrefix = 'cache_habit_logs_';
+  static const _keyLastDailyReset = 'cache_last_daily_reset';
+
+  // ── Daily Reset Flag ───────────────────────────────────────────
+
+  Future<void> setLastDailyReset(DateTime date) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keyLastDailyReset, date.toIso8601String());
+  }
+
+  Future<DateTime?> getLastDailyReset() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_keyLastDailyReset);
+    if (raw == null) return null;
+    return DateTime.tryParse(raw);
+  }
 
   // ── Todos ──────────────────────────────────────────────────────
 
