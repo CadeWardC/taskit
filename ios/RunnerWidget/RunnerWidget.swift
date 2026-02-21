@@ -30,14 +30,31 @@ struct CachedDefaults {
 
 // MARK: - API Models
 
+struct FlexibleInt: Codable, Equatable {
+    let value: Int?
+    init(_ value: Int?) { self.value = value }
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        if let intVal = try? container.decode(Int.self) {
+            value = intVal
+        } else if let stringVal = try? container.decode(String.self), let intVal = Int(stringVal) {
+            value = intVal
+        } else {
+            value = nil
+        }
+    }
+}
+
 struct TaskItem: Codable, Identifiable {
     let id: Int
     let title: String
     let detail: String?
     let is_completed: Bool
     let priority: String?
-    let list_id: Int?
+    let list_id: FlexibleInt?
     let due_date: String?
+    
+    var listId: Int? { list_id?.value }
 }
 
 struct HabitItem: Codable, Identifiable {
@@ -46,15 +63,15 @@ struct HabitItem: Codable, Identifiable {
     let detail: String?
     let icon: String?
     let color: String?
-    let target_count: Int?
-    let current_progress: Int?
-    let current_streak: Int?
-    let best_streak: Int?
+    let target_count: FlexibleInt?
+    let current_progress: FlexibleInt?
+    let current_streak: FlexibleInt?
+    let best_streak: FlexibleInt?
 
-    var targetCount: Int { target_count ?? 1 }
-    var currentProgress: Int { current_progress ?? 0 }
-    var currentStreak: Int { current_streak ?? 0 }
-    var bestStreak: Int { best_streak ?? 0 }
+    var targetCount: Int { target_count?.value ?? 1 }
+    var currentProgress: Int { current_progress?.value ?? 0 }
+    var currentStreak: Int { current_streak?.value ?? 0 }
+    var bestStreak: Int { best_streak?.value ?? 0 }
 
     var isCompleted: Bool {
         currentProgress >= targetCount
@@ -318,8 +335,8 @@ struct Provider: AppIntentTimelineProvider {
         TaskItEntry(
             date: Date(),
             tasks: [
-                TaskItem(id: 1, title: "Example Task", detail: nil, is_completed: false, priority: "medium", list_id: nil, due_date: nil),
-                TaskItem(id: 2, title: "Another Task", detail: "With details", is_completed: false, priority: "none", list_id: nil, due_date: nil),
+                TaskItem(id: 1, title: "Example Task", detail: nil, is_completed: false, priority: "medium", list_id: FlexibleInt(nil), due_date: nil),
+                TaskItem(id: 2, title: "Another Task", detail: "With details", is_completed: false, priority: "none", list_id: FlexibleInt(nil), due_date: nil),
             ],
             habits: [],
             lists: [],
@@ -624,7 +641,7 @@ struct TaskItWidgetEntryView: View {
         var tasks = entry.tasks.filter { !$0.is_completed }
 
         if let listId = entry.selectedListId {
-            tasks = tasks.filter { $0.list_id == listId }
+            tasks = tasks.filter { $0.listId == listId }
         }
 
         return tasks
@@ -782,9 +799,9 @@ struct RunnerWidget_Previews: PreviewProvider {
         TaskItWidgetEntryView(entry: TaskItEntry(
             date: Date(),
             tasks: [
-                TaskItem(id: 1, title: "Buy groceries", detail: "Milk, eggs, bread", is_completed: false, priority: "medium", list_id: 1, due_date: nil),
-                TaskItem(id: 2, title: "Call dentist", detail: nil, is_completed: false, priority: "high", list_id: 1, due_date: nil),
-                TaskItem(id: 3, title: "Review PR", detail: nil, is_completed: false, priority: "none", list_id: 1, due_date: nil),
+                TaskItem(id: 1, title: "Buy groceries", detail: "Milk, eggs, bread", is_completed: false, priority: "medium", list_id: FlexibleInt(1), due_date: nil),
+                TaskItem(id: 2, title: "Call dentist", detail: nil, is_completed: false, priority: "high", list_id: FlexibleInt(1), due_date: nil),
+                TaskItem(id: 3, title: "Review PR", detail: nil, is_completed: false, priority: "none", list_id: FlexibleInt(1), due_date: nil),
             ],
             habits: [],
             lists: [ListItem(id: 1, title: "Work", color: "#4CAF50")],

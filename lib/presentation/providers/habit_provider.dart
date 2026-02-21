@@ -133,12 +133,11 @@ class HabitProvider extends ChangeNotifier {
 
       if (!habit.isCompleted) {
         // === CHECKING OFF (completing) ===
-        // We do NOT increment streak here. Streak is updated in resetDailyProgress.
         final updatedHabit = await _repository.updateHabit(
           id,
           currentProgress: habit.targetCount,
           lastCompleted: today,
-          // currentStreak: keep same
+          currentStreak: habit.currentStreak + 1,
         );
 
         _habits[index] = updatedHabit;
@@ -168,10 +167,15 @@ class HabitProvider extends ChangeNotifier {
           }
         }
         
+        int newStreak = habit.currentStreak;
+        if (habit.lastCompleted != null && _isSameDay(habit.lastCompleted!, today)) {
+          newStreak = (habit.currentStreak - 1).clamp(0, 99999);
+        }
+        
         final updatedHabit = await _repository.updateHabit(
           id,
           currentProgress: 0,
-          currentStreak: habit.currentStreak, // Keep same
+          currentStreak: newStreak,
           lastCompleted: newLastCompleted,
         );
 
@@ -197,14 +201,14 @@ class HabitProvider extends ChangeNotifier {
       final newProgress = habit.currentProgress + 1;
       final isNowComplete = newProgress >= habit.targetCount;
 
-      // Streak logic removed here. Updated in resetDailyProgress.
-      // int newStreak = habit.currentStreak;
+      int newStreak = habit.currentStreak;
       DateTime? newLastCompleted = habit.lastCompleted;
 
       if (isNowComplete && !habit.isCompletedToday) {
         // Just record completion date
         final today = DateTime.now();
         newLastCompleted = today;
+        newStreak = habit.currentStreak + 1;
 
         // Log the completion
         await _repository.logCompletion(
@@ -218,7 +222,7 @@ class HabitProvider extends ChangeNotifier {
         id,
         currentProgress: newProgress,
         lastCompleted: newLastCompleted,
-        // currentStreak: keep same
+        currentStreak: newStreak,
       );
 
       _habits[index] = updatedHabit;
@@ -243,11 +247,13 @@ class HabitProvider extends ChangeNotifier {
       
       // int newStreak = habit.currentStreak; // Unused
       DateTime? newLastCompleted = habit.lastCompleted;
+      int newStreak = habit.currentStreak;
 
       if (!habit.isCompletedToday) {
         // Just record completion date
         final today = DateTime.now();
         newLastCompleted = today;
+        newStreak = habit.currentStreak + 1;
 
         // Log the completion
         await _repository.logCompletion(
@@ -261,7 +267,7 @@ class HabitProvider extends ChangeNotifier {
         id,
         currentProgress: newProgress,
         lastCompleted: newLastCompleted,
-        // currentStreak: keep same
+        currentStreak: newStreak,
       );
 
       _habits[index] = updatedHabit;
@@ -289,6 +295,7 @@ class HabitProvider extends ChangeNotifier {
 
       // Streak logic removed.
       DateTime? newLastCompleted = habit.lastCompleted;
+      int newStreak = habit.currentStreak;
       
       final today = DateTime.now();
       final yesterday = today.subtract(const Duration(days: 1));
@@ -297,6 +304,7 @@ class HabitProvider extends ChangeNotifier {
       if (isNowComplete && !wasComplete) {
          if (!habit.isCompletedToday) {
             newLastCompleted = today;
+            newStreak = habit.currentStreak + 1;
             // Log the completion
             await _repository.logCompletion(
               habitId: id,
@@ -315,6 +323,7 @@ class HabitProvider extends ChangeNotifier {
         if (habit.lastCompleted != null && isSame) {
            // Revert lastCompleted to yesterday
            newLastCompleted = yesterday;
+           newStreak = (habit.currentStreak - 1).clamp(0, 99999);
            
            // DELETE ALL HABIT LOGS FOR TODAY
            try {
@@ -332,7 +341,7 @@ class HabitProvider extends ChangeNotifier {
         id,
         currentProgress: clampedProgress,
         lastCompleted: newLastCompleted,
-        // currentStreak: keep same
+        currentStreak: newStreak,
       );
 
       _habits[index] = updatedHabit;
@@ -359,7 +368,7 @@ class HabitProvider extends ChangeNotifier {
       final wasComplete = habit.currentProgress >= habit.targetCount;
       final isNowComplete = newProgress >= habit.targetCount;
       
-      int newStreak = habit.currentStreak; // Keep same
+      int newStreak = habit.currentStreak;
       DateTime? newLastCompleted = habit.lastCompleted;
 
       if (wasComplete && !isNowComplete) {
@@ -368,26 +377,11 @@ class HabitProvider extends ChangeNotifier {
         final today = DateTime.now();
         if (habit.lastCompleted != null && _isSameDay(habit.lastCompleted!, today)) {
           // Revert to yesterday
-          // We set to yesterday even if streak was 0, to maintain "not today" state.
-          // Actually if we assume streak is valid up to yesterday, setting lastCompleted to yesterday is correct.
-          // But wait, if streak is 0, setting lastCompleted to Yesterday implies we completed it yesterday?
-          // If streak is 0, lastCompleted might be much older.
-          // So if we set it to Yesterday, next daily reset will see "Last Completed Yesterday -> Increment".
-          // This is dangerous if we DIDN'T complete yesterday.
-          // BUT, we only entered this block because `habit.lastCompleted` WAS `today`.
-          // And we know `currentStreak` reflects state *before* today (because we never updated it today!).
-          // So `currentStreak` is correct.
-          // `lastCompleted` needs to reflect reality.
-          // If we revert "Today's completion", `lastCompleted` should revert to PREVIOUS value.
-          // We don't store previous value.
-          // If `currentStreak` > 0, it implies `lastCompleted` was Yesterday.
-          // If `currentStreak` == 0, `lastCompleted` was older or null.
+          newStreak = (habit.currentStreak - 1).clamp(0, 99999);
           if (habit.currentStreak > 0) {
              newLastCompleted = today.subtract(const Duration(days: 1));
           } else {
              newLastCompleted = null; // Or unknown. Null is safest to start fresh?
-             // If we had a streak of 0, `lastCompleted` could be 2 days ago.
-             // Setting to null is destructive but safe against false positives.
           }
 
           // DELETE ALL HABIT LOGS FOR TODAY
@@ -437,27 +431,15 @@ class HabitProvider extends ChangeNotifier {
           int newBestStreak = habit.bestStreak;
 
           // STREAK LOGIC:
-          // Update streak based on whether it was completed YESTERDAY.
-          // We do NOT update streak during the day when completing tasks.
           if (habit.lastCompleted != null) {
             if (_isSameDay(habit.lastCompleted!, yesterday)) {
-               // Completed yesterday -> increment streak
-               newStreak = habit.currentStreak + 1;
+               // Completed yesterday. Streak is maintained up to yesterday. No action needed!
+               newStreak = habit.currentStreak;
             } else if (_isSameDay(habit.lastCompleted!, today)) {
-               // Completed today.
-               // If we are running this logic, it means dateUpdated was NOT today (idempotency check passed).
-               // But the user has clearly interacted with the habit today.
-               // So we should NOT increment streak based on *today's* work yet (that's for tomorrow).
-               // We should just ensure streak is preserved from yesterday (if any).
-               // actually if lastCompleted is TODAY, it means yesterday completion logic was already handled
-               // OR the user broke the streak yesterday but started today.
-               // To differntiate: check currentStreak.
-               // If currentStreak > 0, it means the streak was valid up to yesterday.
-               // So we keep it.
+               // Completed today. Streak is maintained. No action needed!
                newStreak = habit.currentStreak;
             } else {
                // Missed yesterday -> Reset streak
-               // Unless it's a non-daily habit?
                if (habit.frequency == 'daily') {
                  newStreak = 0;
                }
