@@ -123,24 +123,41 @@ class _ListDetailScreenState extends State<ListDetailScreen> {
                           },
                           children: [
                             for (var index = 0; index < activeTasks.length; index++)
-                              ReorderableDragStartListener(
+                              ReorderableDelayedDragStartListener(
                                 key: Key('task_${activeTasks[index].id}'),
                                 index: index,
-                                child: Padding(
-                                  padding: const EdgeInsets.only(bottom: 12),
-                                  child: InkWell(
-                                    onTap: () {
-                                      showDialog(
-                                        context: context,
-                                        builder: (context) => TaskDialog(todo: activeTasks[index]),
-                                      );
-                                    },
-                                    borderRadius: BorderRadius.circular(16),
-                                    child: TaskCard(
-                                      todo: activeTasks[index],
-                                      activeColor: listColor,
-                                      onToggle: () => provider.toggleTodo(activeTasks[index].id!),
-                                      onDelete: () => provider.deleteTodo(activeTasks[index].id!),
+                                child: Dismissible(
+                                  key: Key('dismiss_task_${activeTasks[index].id}'),
+                                  direction: DismissDirection.endToStart,
+                                  onDismissed: (direction) {
+                                    provider.deleteTodo(activeTasks[index].id!);
+                                  },
+                                  background: Container(
+                                    alignment: Alignment.centerRight,
+                                    margin: const EdgeInsets.only(bottom: 12),
+                                    padding: const EdgeInsets.only(right: 20),
+                                    decoration: BoxDecoration(
+                                      color: Colors.red.withValues(alpha: 0.8),
+                                      borderRadius: BorderRadius.circular(16),
+                                    ),
+                                    child: const Icon(Icons.delete, color: Colors.white),
+                                  ),
+                                  child: Padding(
+                                    padding: const EdgeInsets.only(bottom: 12),
+                                    child: InkWell(
+                                      onTap: () {
+                                        showDialog(
+                                          context: context,
+                                          builder: (context) => TaskDialog(todo: activeTasks[index]),
+                                        );
+                                      },
+                                      borderRadius: BorderRadius.circular(16),
+                                      child: TaskCard(
+                                        todo: activeTasks[index],
+                                        activeColor: listColor,
+                                        onToggle: () => provider.toggleTodo(activeTasks[index].id!),
+                                        onDelete: () => provider.deleteTodo(activeTasks[index].id!),
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -268,18 +285,7 @@ class _ListDetailScreenState extends State<ListDetailScreen> {
           },
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          showDialog(
-            context: context,
-            builder: (context) => TaskDialog(initialListId: widget.list.id),
-          );
-        },
-        backgroundColor: listColor ?? Theme.of(context).colorScheme.primary,
-        foregroundColor: Colors.black,
-        icon: const Icon(Icons.add),
-        label: const Text('New Task'),
-      ),
+
     );
   }
 

@@ -13,6 +13,7 @@ Habit _$HabitFromJson(Map<String, dynamic> json) => Habit(
   icon: json['icon'] as String?,
   color: json['color'] as String?,
   targetCount: (json['target_count'] as num?)?.toInt() ?? 1,
+  unit: json['unit'] as String? ?? 'times',
   currentProgress: (json['current_progress'] as num?)?.toInt() ?? 0,
   frequency: json['frequency'] as String? ?? 'daily',
   repeatInterval: (json['repeat_interval'] as num?)?.toInt() ?? 1,
@@ -46,4 +47,5 @@ Map<String, dynamic> _$HabitToJson(Habit instance) => <String, dynamic>{
   'best_streak': instance.bestStreak,
   'last_completed': instance.lastCompleted?.toIso8601String(),
   'created_at': instance.createdAt?.toIso8601String(),
+  'unit': instance.unit,
 };

@@ -44,6 +44,12 @@ class Habit {
   @JsonKey(name: 'created_at')
   final DateTime? createdAt;
 
+  @JsonKey(name: 'unit')
+  final String unit;
+
+  @JsonKey(name: 'date_updated')
+  final DateTime? dateUpdated;
+
   Habit({
     this.id,
     required this.title,
@@ -51,6 +57,7 @@ class Habit {
     this.icon,
     this.color,
     this.targetCount = 1,
+    this.unit = 'times',
     this.currentProgress = 0,
     this.frequency = 'daily',
     this.repeatInterval = 1,
@@ -60,6 +67,7 @@ class Habit {
     this.bestStreak = 0,
     this.lastCompleted,
     this.createdAt,
+    this.dateUpdated,
   });
 
   factory Habit.fromJson(Map<String, dynamic> json) {
@@ -85,6 +93,10 @@ class Habit {
       createdAt: json['created_at'] != null
           ? DateTime.tryParse(json['created_at'].toString())
           : null,
+      unit: json['unit'] as String? ?? 'times',
+      dateUpdated: json['date_updated'] != null
+          ? DateTime.tryParse(json['date_updated'].toString())
+          : null,
     );
   }
 
@@ -97,6 +109,7 @@ class Habit {
     String? icon,
     String? color,
     int? targetCount,
+    String? unit,
     int? currentProgress,
     String? frequency,
     int? repeatInterval,
@@ -106,6 +119,7 @@ class Habit {
     int? bestStreak,
     DateTime? lastCompleted,
     DateTime? createdAt,
+    DateTime? dateUpdated,
   }) {
     return Habit(
       id: id ?? this.id,
@@ -123,6 +137,8 @@ class Habit {
       bestStreak: bestStreak ?? this.bestStreak,
       lastCompleted: lastCompleted ?? this.lastCompleted,
       createdAt: createdAt ?? this.createdAt,
+      dateUpdated: dateUpdated ?? this.dateUpdated,
+      unit: unit ?? this.unit,
     );
   }
 

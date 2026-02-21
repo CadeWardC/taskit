@@ -58,9 +58,11 @@ class _TaskDialogState extends State<TaskDialog> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.all(Radius.circular(24)),
       ),
-      child: Container(
-        padding: const EdgeInsets.all(24),
-        child: SingleChildScrollView(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 500),
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -104,7 +106,7 @@ class _TaskDialogState extends State<TaskDialog> {
               children: [
                 Expanded(
                   child: DropdownButtonFormField<String>(
-                    value: _priority,
+                    initialValue: _priority,
                     dropdownColor: const Color(0xFF2C2C2C),
                     style: const TextStyle(color: Colors.white),
                     decoration: InputDecoration(
@@ -264,7 +266,7 @@ class _TaskDialogState extends State<TaskDialog> {
               builder: (context, provider, child) {
                 if (provider.lists.isEmpty) return const SizedBox.shrink();
                 return DropdownButtonFormField<int>(
-                  value: _listId,
+                  initialValue: _listId,
                   dropdownColor: const Color(0xFF2C2C2C),
                   style: const TextStyle(color: Colors.white),
                   decoration: InputDecoration(
@@ -410,6 +412,7 @@ class _TaskDialogState extends State<TaskDialog> {
           ],
         ),
         ),
+      ),
       ),
     );
   }

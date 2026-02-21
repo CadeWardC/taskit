@@ -25,13 +25,17 @@ class _ReportsViewState extends State<ReportsView> {
 
   Future<void> _loadLogs() async {
     final provider = Provider.of<HabitProvider>(context, listen: false);
-    
+    debugPrint('ReportsView: Loading logs for ${provider.habits.length} habits...');
+
     // First pass: Load from cache
     final Map<int, List<HabitLog>> cachedLogs = {};
     for (final habit in provider.habits) {
       if (habit.id != null) {
         final logs = await provider.getCachedHabitLogs(habit.id!);
-        if (logs != null) cachedLogs[habit.id!] = logs;
+        if (logs != null) {
+          cachedLogs[habit.id!] = logs;
+          debugPrint('ReportsView: Loaded ${logs.length} cached logs for habit ${habit.id}');
+        }
       }
     }
     
@@ -47,8 +51,11 @@ class _ReportsViewState extends State<ReportsView> {
     for (final habit in provider.habits) {
       if (habit.id != null) {
         try {
-          freshLogs[habit.id!] = await provider.getHabitHistory(habit.id!);
-        } catch (_) {
+          final logs = await provider.getHabitHistory(habit.id!);
+          freshLogs[habit.id!] = logs;
+          debugPrint('ReportsView: Loaded ${logs.length} fresh logs for habit ${habit.id}');
+        } catch (e) {
+          debugPrint('ReportsView: Error loading logs for habit ${habit.id}: $e');
           freshLogs[habit.id!] = _logsPerHabit[habit.id!] ?? [];
         }
       }
@@ -133,7 +140,7 @@ class _ReportsViewState extends State<ReportsView> {
     for (final habit in habits) {
       final logs = _logsPerHabit[habit.id] ?? [];
       totalCompleted += logs
-          .where((log) => log.date.isAfter(weekAgo))
+          .where((log) => log.date.toLocal().isAfter(weekAgo))
           .length;
     }
     final completionRate =
@@ -184,9 +191,14 @@ class _ReportsViewState extends State<ReportsView> {
     for (final habit in habits) {
       final logs = _logsPerHabit[habit.id] ?? [];
       for (final log in logs) {
-        final daysAgo = now.difference(log.date).inDays;
+        final localDate = log.date.toLocal();
+        final daysAgo = now.difference(localDate).inDays;
+        
+        // Ensure we are comparing dates correctly (ignoring time for "days ago" logic roughly)
+        // Actually difference() uses time.
+        // Better: check if it's within the last 7 calendar days.
         if (daysAgo < 7 && daysAgo >= 0) {
-          final dayIndex = (log.date.weekday - 1) % 7;
+          final dayIndex = (localDate.weekday - 1) % 7;
           completionsPerDay[dayIndex] += 1;
         }
       }
@@ -269,10 +281,12 @@ class _ReportsViewState extends State<ReportsView> {
     final now = DateTime.now();
     final last30Days = List.generate(30, (i) {
       final day = now.subtract(Duration(days: 29 - i));
-      final completed = logs.any((log) =>
-          log.date.year == day.year &&
-          log.date.month == day.month &&
-          log.date.day == day.day);
+      final completed = logs.any((log) {
+        final localDate = log.date.toLocal();
+        return localDate.year == day.year &&
+               localDate.month == day.month &&
+               localDate.day == day.day;
+      });
       return completed;
     });
 

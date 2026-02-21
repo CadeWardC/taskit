@@ -63,6 +63,7 @@ class DirectusService {
   // ============================================================
 
   Future<List<Todo>> getTodos() async {
+    if (_currentUserId == null || _currentUserId!.isEmpty) return [];
     try {
       debugPrint('Fetching todos for user: $_currentUserId');
       final response = await _dio.get('/items/todos', queryParameters: {
@@ -159,6 +160,7 @@ class DirectusService {
   // ============================================================
   
   Future<List<TodoList>> getLists() async {
+    if (_currentUserId == null || _currentUserId!.isEmpty) return [];
     try {
       debugPrint('Fetching lists for user: $_currentUserId');
       final response = await _dio.get('/items/lists', queryParameters: {
@@ -217,6 +219,7 @@ class DirectusService {
   // ============================================================
 
   Future<List<Habit>> getHabits() async {
+    if (_currentUserId == null || _currentUserId!.isEmpty) return [];
     try {
       final response = await _dio.get('/items/habits', queryParameters: {
         'filter[user_id][_eq]': _currentUserId,
@@ -234,6 +237,7 @@ class DirectusService {
     String? icon,
     String? color,
     int targetCount = 1,
+    String unit = 'times',
     String frequency = 'daily',
     int repeatInterval = 1,
     String goalType = 'daily',
@@ -246,6 +250,7 @@ class DirectusService {
         'icon': icon,
         'color': color,
         'target_count': targetCount,
+        'unit': unit,
         'current_progress': 0,
         'frequency': frequency,
         'repeat_interval': repeatInterval,
@@ -269,6 +274,7 @@ class DirectusService {
     String? icon,
     String? color,
     int? targetCount,
+    String? unit,
     int? currentProgress,
     String? frequency,
     List<int>? customDays,
@@ -278,6 +284,7 @@ class DirectusService {
     bool clearLastCompleted = false,
     int? repeatInterval,
     String? goalType,
+    DateTime? dateUpdated,
   }) async {
     try {
       final Map<String, dynamic> data = {};
@@ -286,6 +293,7 @@ class DirectusService {
       if (icon != null) data['icon'] = icon;
       if (color != null) data['color'] = color;
       if (targetCount != null) data['target_count'] = targetCount;
+      if (unit != null) data['unit'] = unit;
       if (currentProgress != null) data['current_progress'] = currentProgress;
       if (frequency != null) data['frequency'] = frequency;
       if (repeatInterval != null) data['repeat_interval'] = repeatInterval;
@@ -298,8 +306,14 @@ class DirectusService {
       } else if (clearLastCompleted) {
         data['last_completed'] = null;
       }
+      // Note: We do NOT send 'date_updated' as it is a system field managed by Directus.
+      // We only read it from the response.
 
-      final response = await _dio.patch('/items/habits/$id', data: data);
+      final response = await _dio.patch(
+        '/items/habits/$id',
+        data: data,
+        queryParameters: {'fields': '*'},
+      );
       return Habit.fromJson(response.data['data']);
     } catch (e) {
       throw Exception('Failed to update habit: $e');
@@ -348,5 +362,86 @@ class DirectusService {
     } catch (e) {
       throw Exception('Failed to create habit log: $e');
     }
+  }
+
+  Future<void> deleteHabitLog(int id) async {
+    try {
+      await _dio.delete('/items/habit_logs/$id');
+    } catch (e) {
+      throw Exception('Failed to delete habit log: $e');
+    }
+  }
+
+  Future<void> deleteHabitLogsForDate(int habitId, DateTime date) async {
+    try {
+      final logs = await getHabitLogs(habitId);
+      final isUtc = date.isUtc;
+      debugPrint('Deleting logs for habit $habitId on date $date (UTC: $isUtc). Found ${logs.length} total logs.');
+      
+      final logsToDelete = logs.where((l) {
+        final isSame = isUtc 
+            ? _isSameDayUtc(l.date, date) 
+            : _isSameDay(l.date, date);
+            
+        debugPrint('Checking Log ${l.id}: Date=${l.date} vs Target=${date} -> Match: $isSame');
+        return isSame;
+      }).toList();
+      
+      debugPrint('Found ${logsToDelete.length} logs to delete for date $date.');
+      
+      if (logsToDelete.isEmpty) return;
+
+      final ids = logsToDelete.map((l) => l.id).where((id) => id != null).toList();
+      if (ids.isNotEmpty) {
+        // Directus delete mostly confusing with list of IDs in body? 
+        // Docs say DELETE /items/:collection/:id or DELETE /items/:collection with body [ids]
+        // Dio delete with data often requires explicit options.
+        // Assuming current implementation works:
+        // await _dio.delete('/items/habit_logs', data: ids);
+        // But some APIs require data to be passed in 'data' field of Options or as query.
+        // Directus: DELETE /items/articles/[1,2,3] or DELETE /items/articles with payload [1,2,3]
+        
+        // Let's stick to simple individual deletes if batch fails, 
+        // but existing code used batch delete logic. 
+        // Re-using existing logic but safe-guarding:
+         try {
+           await _dio.delete('/items/habit_logs', data: ids);
+         } catch (e) {
+           debugPrint('Batch delete failed, trying individual: $e');
+           for (final id in ids) {
+             await deleteHabitLog(id!);
+           }
+         }
+
+        debugPrint('Deleted logs with IDs: $ids');
+      }
+    } catch (e) {
+      debugPrint('Error deleting habit logs for date: $e');
+    }
+  }
+
+  Future<void> deleteAllHabitLogs(int habitId) async {
+    try {
+      final logs = await getHabitLogs(habitId);
+      final ids = logs.map((l) => l.id).where((id) => id != null).toList();
+      
+      if (ids.isNotEmpty) {
+        await _dio.delete('/items/habit_logs', data: ids);
+      }
+    } catch (e) {
+      debugPrint('Error deleting all habit logs: $e');
+    }
+  }
+
+  bool _isSameDay(DateTime a, DateTime b) {
+    final localA = a.toLocal();
+    final localB = b.toLocal();
+    return localA.year == localB.year && localA.month == localB.month && localA.day == localB.day;
+  }
+  
+  bool _isSameDayUtc(DateTime a, DateTime b) {
+    final utcA = a.toUtc();
+    final utcB = b.toUtc();
+    return utcA.year == utcB.year && utcA.month == utcB.month && utcA.day == utcB.day;
   }
 }

@@ -185,20 +185,37 @@ class _ListsScreenState extends State<ListsScreen> {
                           // ReorderableListView requires unique keys for items
                           return Dismissible(
                             key: Key('list_${list.id}'),
-                            direction: DismissDirection.endToStart,
+                            direction: DismissDirection.horizontal,
                             confirmDismiss: (direction) async {
-                              _showEditListDialog(context, list);
-                              return false; // Don't dismiss
+                              if (direction == DismissDirection.endToStart) {
+                                // Swipe Left - Delete
+                                _showDeleteListDialog(context, list);
+                                return false; // Don't dismiss immediately, let dialog handle it via provider update
+                              } else {
+                                // Swipe Right - Edit
+                                _showEditListDialog(context, list);
+                                return false;
+                              }
                             },
                             background: Container(
-                              alignment: Alignment.centerRight,
-                              padding: const EdgeInsets.only(right: 20),
+                              alignment: Alignment.centerLeft,
+                              padding: const EdgeInsets.only(left: 20),
                               margin: const EdgeInsets.only(bottom: 12),
                               decoration: BoxDecoration(
                                 color: Colors.blue,
                                 borderRadius: BorderRadius.circular(16),
                               ),
                               child: const Icon(Icons.edit, color: Colors.white, size: 30),
+                            ),
+                            secondaryBackground: Container(
+                              alignment: Alignment.centerRight,
+                              padding: const EdgeInsets.only(right: 20),
+                              margin: const EdgeInsets.only(bottom: 12),
+                              decoration: BoxDecoration(
+                                color: Colors.red,
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              child: const Icon(Icons.delete, color: Colors.white, size: 30),
                             ),
                             child: Card(
                               margin: const EdgeInsets.only(bottom: 12),

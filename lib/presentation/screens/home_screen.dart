@@ -113,10 +113,10 @@ class _HomeScreenState extends State<HomeScreen> {
                     )
                   : ListView.builder(
                       padding: const EdgeInsets.only(
-                        top: 100,
+                        top: 80,
                         left: 16,
                         right: 16,
-                        bottom: 100,
+                        bottom: 80,
                       ),
                       itemCount: todayTasks.length,
                       itemBuilder: (context, index) {
@@ -144,22 +144,7 @@ class _HomeScreenState extends State<HomeScreen> {
           },
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          showDialog(
-            context: context,
-            builder: (context) => TaskDialog(
-              initialListId:
-                  Provider.of<TodoProvider>(context, listen: false)
-                      .selectedListId,
-            ),
-          );
-        },
-        backgroundColor: Theme.of(context).colorScheme.primary,
-        foregroundColor: Colors.black,
-        icon: const Icon(Icons.add),
-        label: const Text('New Task'),
-      ),
+
     );
   }
 }

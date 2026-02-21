@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'package:flutter/material.dart';
+
 import 'package:home_widget/home_widget.dart';
 import '../../data/models/todo.dart';
 import '../../data/models/todo_list.dart';
@@ -183,6 +183,20 @@ class TodoProvider extends ChangeNotifier {
     String? recurring, // Deprecated
   }) async {
     try {
+      // Calculate order (put at top)
+      int? newOrder;
+      final targetListId = listId ?? _selectedListId;
+      
+      if (targetListId != null) {
+        final listTodos = _todos.where((t) => t.listId == targetListId).toList();
+        if (listTodos.isNotEmpty) {
+          final minOrder = listTodos.map((t) => t.order ?? 0).reduce((curr, next) => curr < next ? curr : next);
+          newOrder = minOrder - 1;
+        } else {
+          newOrder = 0;
+        }
+      }
+
       final newTodo = await _repository.addTodo(
         title: title,
         detail: detail,
@@ -193,6 +207,7 @@ class TodoProvider extends ChangeNotifier {
         recurringFrequency: recurringFrequency ?? recurring,
         repeatInterval: repeatInterval,
         customRecurringDays: customRecurringDays,
+        order: newOrder,
       );
       _todos.add(newTodo);
       _sortTodos();
@@ -282,12 +297,26 @@ class TodoProvider extends ChangeNotifier {
 
   Future<void> deleteList(int id) async {
     try {
+      // Manual cascade delete: Delete all tasks in this list first
+      final tasksToDelete = _todos.where((t) => t.listId == id).toList();
+      if (tasksToDelete.isNotEmpty) {
+        // Delete from server in parallel
+        await Future.wait(
+          tasksToDelete.map((t) => _repository.deleteTodo(t.id!))
+        );
+        // Remove from local state
+        _todos.removeWhere((t) => t.listId == id);
+      }
+
+      // Now safe to delete the list
       await _repository.deleteList(id);
+      
       _lists.removeWhere((l) => l.id == id);
       // If we deleted the currently selected list, reset selection
       if (_selectedListId == id) {
         _selectedListId = null;
       }
+      await _updateWidgetData(); // Update widget since tasks were removed
       await _saveCache();
       notifyListeners();
     } catch (e) {

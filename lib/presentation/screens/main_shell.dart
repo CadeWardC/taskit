@@ -4,12 +4,12 @@ import '../providers/todo_provider.dart';
 import '../providers/habit_provider.dart';
 import '../widgets/responsive_scaffold.dart';
 import 'home_screen.dart';
-import 'lists_screen.dart';
 import 'calendar_screen.dart';
 import 'habits_screen.dart';
 import 'settings_screen.dart';
 import '../widgets/task_dialog.dart';
 import '../widgets/habit_dialog.dart';
+import '../navigation/lists_navigator.dart';
 
 class MainShell extends StatefulWidget {
   const MainShell({super.key});
@@ -91,7 +91,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
       navItems: _navItems,
       destinations: [
         HomeScreen(), // Today
-        ListsScreen(),
+        ListsNavigator(),
         CalendarScreen(),
         HabitsScreen(),
         SettingsScreen(),
@@ -121,19 +121,42 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     }
     
     // Today, Lists, Calendar - show "New Task" button
-    return FloatingActionButton.extended(
-      onPressed: () {
-        final selectedListId =
-            Provider.of<TodoProvider>(context, listen: false).selectedListId;
-        showDialog(
-          context: context,
-          builder: (context) => TaskDialog(initialListId: selectedListId),
+    // Today, Lists, Calendar - show "New Task" button
+    return Consumer<TodoProvider>(
+      builder: (context, provider, child) {
+        Color fabColor = Theme.of(context).colorScheme.primary;
+        final selectedListId = provider.selectedListId;
+
+        if (selectedListId != null) {
+          try {
+            final list = provider.lists.firstWhere((l) => l.id == selectedListId);
+            if (list.color != null) {
+              fabColor = Color(int.parse(list.color!.replaceFirst('#', '0xFF')));
+            }
+          } catch (_) {
+            // List not found, keep default color
+          }
+        }
+
+        return TweenAnimationBuilder<Color?>(
+          tween: ColorTween(end: fabColor),
+          duration: const Duration(milliseconds: 300),
+          builder: (context, color, child) {
+            return FloatingActionButton.extended(
+              onPressed: () {
+                showDialog(
+                  context: context,
+                  builder: (context) => TaskDialog(initialListId: selectedListId),
+                );
+              },
+              backgroundColor: color,
+              foregroundColor: Colors.black, // Should maybe adapt to background? Usually black on bright colors is fine.
+              icon: const Icon(Icons.add),
+              label: const Text('New Task'),
+            );
+          },
         );
       },
-      backgroundColor: Theme.of(context).colorScheme.primary,
-      foregroundColor: Colors.black,
-      icon: const Icon(Icons.add),
-      label: const Text('New Task'),
     );
   }
 

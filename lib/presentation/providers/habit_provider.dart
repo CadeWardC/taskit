@@ -37,6 +37,9 @@ class HabitProvider extends ChangeNotifier {
     try {
       _habits = await _repository.getHabits();
       await _cache.cacheHabits(_habits);
+      
+      // Check for daily resets (streaks, progress)
+      await resetDailyProgress();
     } catch (e) {
       _error = e.toString();
     } finally {
@@ -51,6 +54,7 @@ class HabitProvider extends ChangeNotifier {
     String? icon,
     String? color,
     int targetCount = 1,
+    String unit = 'times',
     String frequency = 'daily',
     int repeatInterval = 1,
     String goalType = 'daily',
@@ -63,6 +67,7 @@ class HabitProvider extends ChangeNotifier {
         icon: icon,
         color: color,
         targetCount: targetCount,
+        unit: unit,
         frequency: frequency,
         repeatInterval: repeatInterval,
         goalType: goalType,
@@ -84,6 +89,7 @@ class HabitProvider extends ChangeNotifier {
     String? icon,
     String? color,
     int? targetCount,
+    String? unit,
     String? frequency,
     int? repeatInterval,
     String? goalType,
@@ -97,6 +103,7 @@ class HabitProvider extends ChangeNotifier {
         icon: icon,
         color: color,
         targetCount: targetCount,
+        unit: unit,
         frequency: frequency,
         repeatInterval: repeatInterval,
         goalType: goalType,
@@ -115,10 +122,6 @@ class HabitProvider extends ChangeNotifier {
     }
   }
 
-  /// Toggle habit completion like a task checkbox.
-  /// Check = mark complete for today, increment streak.
-  /// Uncheck = mark incomplete, revert streak so re-checking doesn't double-count.
-  /// Best streak is NOT updated here — it's finalized at midnight in resetDailyProgress.
   Future<void> toggleHabit(int id) async {
     try {
       final index = _habits.indexWhere((h) => h.id == id);
@@ -126,58 +129,50 @@ class HabitProvider extends ChangeNotifier {
 
       final habit = _habits[index];
       final today = DateTime.now();
+      final yesterday = today.subtract(const Duration(days: 1));
 
       if (!habit.isCompleted) {
         // === CHECKING OFF (completing) ===
-        int newStreak = habit.currentStreak;
-        final yesterday = today.subtract(const Duration(days: 1));
-
-        if (habit.lastCompleted == null) {
-          newStreak = 1;
-        } else if (_isSameDay(habit.lastCompleted!, yesterday)) {
-          newStreak = habit.currentStreak + 1;
-        } else if (_isSameDay(habit.lastCompleted!, today)) {
-          // Already completed today before (toggled off then on again)
-          // Don't change streak — it was already counted
-        } else {
-          // Streak broken, starting new
-          newStreak = 1;
-        }
-
+        // We do NOT increment streak here. Streak is updated in resetDailyProgress.
         final updatedHabit = await _repository.updateHabit(
           id,
           currentProgress: habit.targetCount,
-          currentStreak: newStreak,
           lastCompleted: today,
+          // currentStreak: keep same
         );
 
         _habits[index] = updatedHabit;
       } else {
         // === UNCHECKING (un-completing) ===
-        int newStreak = habit.currentStreak;
-        bool shouldClearLastCompleted = false;
+        // bool shouldClearLastCompleted = false; // Unused
         DateTime? newLastCompleted;
 
-        // Only revert streak if it was completed today
-        if (habit.lastCompleted != null && _isSameDay(habit.lastCompleted!, today)) {
-          if (newStreak > 0) {
-            newStreak = newStreak - 1;
-          }
-          // Revert lastCompleted so re-checking works correctly
-          if (newStreak > 0) {
-            newLastCompleted = today.subtract(const Duration(days: 1));
-          } else {
-            // Streak is 0, clear lastCompleted entirely
-            shouldClearLastCompleted = true;
+        // If it was completed TODAY, revert lastCompleted
+        debugPrint('Checking for log deletion (toggleHabit): lastCompleted=${habit.lastCompleted} (UTC) vs today=$today (Local)');
+        
+        if (habit.lastCompleted != null) {
+          final isSame = _isSameDay(habit.lastCompleted!, today);
+          debugPrint('Are they same day? $isSame (Local conversions: ${habit.lastCompleted!.toLocal()} vs ${today.toLocal()})');
+        
+          if (isSame) {
+            // Revert to yesterday to reflect "streak is pending for today" state
+            newLastCompleted = yesterday;
+            
+            // DELETE ALL HABIT LOGS FOR TODAY
+            try {
+              debugPrint('Attempting to delete logs for habit $id on date $today');
+              await _repository.deleteHabitLogsForDate(id, today);
+            } catch (e) {
+              debugPrint('Error deleting habit logs: $e');
+            }
           }
         }
-
+        
         final updatedHabit = await _repository.updateHabit(
           id,
           currentProgress: 0,
-          currentStreak: newStreak,
+          currentStreak: habit.currentStreak, // Keep same
           lastCompleted: newLastCompleted,
-          clearLastCompleted: shouldClearLastCompleted,
         );
 
         _habits[index] = updatedHabit;
@@ -197,33 +192,18 @@ class HabitProvider extends ChangeNotifier {
       if (index == -1) return;
 
       final habit = _habits[index];
+      if (habit.currentProgress >= habit.targetCount) return; // Prevent exceeding target
+
       final newProgress = habit.currentProgress + 1;
       final isNowComplete = newProgress >= habit.targetCount;
 
-      // Calculate streak
-      int newStreak = habit.currentStreak;
-      int newBestStreak = habit.bestStreak;
+      // Streak logic removed here. Updated in resetDailyProgress.
+      // int newStreak = habit.currentStreak;
       DateTime? newLastCompleted = habit.lastCompleted;
 
       if (isNowComplete && !habit.isCompletedToday) {
-        // Check if continuing streak
+        // Just record completion date
         final today = DateTime.now();
-        final yesterday = today.subtract(const Duration(days: 1));
-
-        if (habit.lastCompleted == null) {
-          newStreak = 1;
-        } else if (_isSameDay(habit.lastCompleted!, yesterday)) {
-          newStreak = habit.currentStreak + 1;
-        } else if (_isSameDay(habit.lastCompleted!, today)) {
-          // Already completed today, don't change streak
-        } else {
-          // Streak broken, starting new
-          newStreak = 1;
-        }
-
-        newBestStreak = newStreak > habit.bestStreak
-            ? newStreak
-            : habit.bestStreak;
         newLastCompleted = today;
 
         // Log the completion
@@ -237,9 +217,122 @@ class HabitProvider extends ChangeNotifier {
       final updatedHabit = await _repository.updateHabit(
         id,
         currentProgress: newProgress,
-        currentStreak: newStreak,
-        bestStreak: newBestStreak,
         lastCompleted: newLastCompleted,
+        // currentStreak: keep same
+      );
+
+      _habits[index] = updatedHabit;
+      await _cache.cacheHabits(_habits);
+      notifyListeners();
+    } catch (e) {
+      _error = e.toString();
+      notifyListeners();
+    }
+  }
+
+  Future<void> completeHabit(int id) async {
+    try {
+      final index = _habits.indexWhere((h) => h.id == id);
+      if (index == -1) return;
+
+      final habit = _habits[index];
+      if (habit.currentProgress >= habit.targetCount) return; // Already complete
+
+      final newProgress = habit.targetCount;
+      // The rest is similar to incrementProgress logic for completion
+      
+      // int newStreak = habit.currentStreak; // Unused
+      DateTime? newLastCompleted = habit.lastCompleted;
+
+      if (!habit.isCompletedToday) {
+        // Just record completion date
+        final today = DateTime.now();
+        newLastCompleted = today;
+
+        // Log the completion
+        await _repository.logCompletion(
+          habitId: id,
+          date: today,
+          completedCount: newProgress,
+        );
+      }
+
+      final updatedHabit = await _repository.updateHabit(
+        id,
+        currentProgress: newProgress,
+        lastCompleted: newLastCompleted,
+        // currentStreak: keep same
+      );
+
+      _habits[index] = updatedHabit;
+      await _cache.cacheHabits(_habits);
+      notifyListeners();
+    } catch (e) {
+      _error = e.toString();
+      notifyListeners();
+    }
+  }
+
+  Future<void> updateProgress(int id, int newProgress) async {
+    try {
+      final index = _habits.indexWhere((h) => h.id == id);
+      if (index == -1) return;
+
+      final habit = _habits[index];
+      // Clamp progress between 0 and targetCount
+      final clampedProgress = newProgress.clamp(0, habit.targetCount);
+      
+      if (clampedProgress == habit.currentProgress) return;
+
+      final isNowComplete = clampedProgress >= habit.targetCount;
+      final wasComplete = habit.currentProgress >= habit.targetCount;
+
+      // Streak logic removed.
+      DateTime? newLastCompleted = habit.lastCompleted;
+      
+      final today = DateTime.now();
+      final yesterday = today.subtract(const Duration(days: 1));
+
+      // Handle Completion
+      if (isNowComplete && !wasComplete) {
+         if (!habit.isCompletedToday) {
+            newLastCompleted = today;
+            // Log the completion
+            await _repository.logCompletion(
+              habitId: id,
+              date: today,
+              completedCount: clampedProgress,
+            );
+         }
+      } 
+      // Handle Un-completion
+      else if (wasComplete && !isNowComplete) {
+        debugPrint('Un-completing habit $id. Checking lastCompleted: ${habit.lastCompleted} vs today: $today');
+        
+        final isSame = habit.lastCompleted != null && _isSameDay(habit.lastCompleted!, today);
+        debugPrint('Is same day? $isSame');
+        
+        if (habit.lastCompleted != null && isSame) {
+           // Revert lastCompleted to yesterday
+           newLastCompleted = yesterday;
+           
+           // DELETE ALL HABIT LOGS FOR TODAY
+           try {
+             debugPrint('Attempting to delete logs for habit $id on date $today');
+             await _repository.deleteHabitLogsForDate(id, today);
+           } catch (e) {
+             debugPrint('Error deleting habit logs: $e');
+           }
+        } else {
+          debugPrint('Skipping log deletion. lastCompleted was ${habit.lastCompleted}');
+        }
+      }
+
+      final updatedHabit = await _repository.updateHabit(
+        id,
+        currentProgress: clampedProgress,
+        lastCompleted: newLastCompleted,
+        // currentStreak: keep same
       );
 
       _habits[index] = updatedHabit;
@@ -266,32 +359,42 @@ class HabitProvider extends ChangeNotifier {
       final wasComplete = habit.currentProgress >= habit.targetCount;
       final isNowComplete = newProgress >= habit.targetCount;
       
-      int newStreak = habit.currentStreak;
+      int newStreak = habit.currentStreak; // Keep same
       DateTime? newLastCompleted = habit.lastCompleted;
 
       if (wasComplete && !isNowComplete) {
         // We are undoing a completion.
-        // If it was completed TODAY, we should revert the streak.
+        // If it was completed TODAY, we should revert lastCompleted.
         final today = DateTime.now();
         if (habit.lastCompleted != null && _isSameDay(habit.lastCompleted!, today)) {
-          // It was completed today. Revert streak.
-          if (newStreak > 0) {
-            newStreak = newStreak - 1;
-            
-            // Revert lastCompleted. 
-            // If new streak is > 0, assumes previous completion was yesterday.
-            // If new streak is 0, then no previous completion relevant for streak.
-            if (newStreak > 0) {
-               newLastCompleted = today.subtract(const Duration(days: 1));
-            } else {
-               // If streak is 0, we can't easily know when the *actual* last completion was 
-               // without a full history log, but for streak purposes, it's not "today".
-               // Setting to null or keeping as is? 
-               // If we keep as 'today', it might auto-increment again if we re-complete.
-               // Best to set to yesterday or null to allow re-increment.
-               // Let's set to null to be safe, as "streak broken/reset".
-               newLastCompleted = null; 
-            }
+          // Revert to yesterday
+          // We set to yesterday even if streak was 0, to maintain "not today" state.
+          // Actually if we assume streak is valid up to yesterday, setting lastCompleted to yesterday is correct.
+          // But wait, if streak is 0, setting lastCompleted to Yesterday implies we completed it yesterday?
+          // If streak is 0, lastCompleted might be much older.
+          // So if we set it to Yesterday, next daily reset will see "Last Completed Yesterday -> Increment".
+          // This is dangerous if we DIDN'T complete yesterday.
+          // BUT, we only entered this block because `habit.lastCompleted` WAS `today`.
+          // And we know `currentStreak` reflects state *before* today (because we never updated it today!).
+          // So `currentStreak` is correct.
+          // `lastCompleted` needs to reflect reality.
+          // If we revert "Today's completion", `lastCompleted` should revert to PREVIOUS value.
+          // We don't store previous value.
+          // If `currentStreak` > 0, it implies `lastCompleted` was Yesterday.
+          // If `currentStreak` == 0, `lastCompleted` was older or null.
+          if (habit.currentStreak > 0) {
+             newLastCompleted = today.subtract(const Duration(days: 1));
+          } else {
+             newLastCompleted = null; // Or unknown. Null is safest to start fresh?
+             // If we had a streak of 0, `lastCompleted` could be 2 days ago.
+             // Setting to null is destructive but safe against false positives.
+          }
+
+          // DELETE ALL HABIT LOGS FOR TODAY
+          try {
+            await _repository.deleteHabitLogsForDate(id, today);
+          } catch (e) {
+            debugPrint('Error deleting habit logs: $e');
           }
         }
       }
@@ -314,39 +417,78 @@ class HabitProvider extends ChangeNotifier {
 
   Future<void> resetDailyProgress() async {
     // Called at start of new day to reset progress for daily habits
-    // Also finalizes bestStreak from the previous day
     try {
       final today = DateTime.now();
       final yesterday = today.subtract(const Duration(days: 1));
 
       for (int i = 0; i < _habits.length; i++) {
         final habit = _habits[i];
+        
+        // Idempotency check: If habit was already updated today, skip logic.
+        // This prevents double streak increments or resetting progress mid-day.
+        if (habit.dateUpdated != null && _isSameDay(habit.dateUpdated!, today)) {
+          continue;
+        }
+
         if (habit.frequency == 'daily' ||
             _shouldResetForFrequency(habit, today)) {
           
           int newStreak = habit.currentStreak;
           int newBestStreak = habit.bestStreak;
 
-          // Finalize best streak from yesterday's activity
+          // STREAK LOGIC:
+          // Update streak based on whether it was completed YESTERDAY.
+          // We do NOT update streak during the day when completing tasks.
+          if (habit.lastCompleted != null) {
+            if (_isSameDay(habit.lastCompleted!, yesterday)) {
+               // Completed yesterday -> increment streak
+               newStreak = habit.currentStreak + 1;
+            } else if (_isSameDay(habit.lastCompleted!, today)) {
+               // Completed today.
+               // If we are running this logic, it means dateUpdated was NOT today (idempotency check passed).
+               // But the user has clearly interacted with the habit today.
+               // So we should NOT increment streak based on *today's* work yet (that's for tomorrow).
+               // We should just ensure streak is preserved from yesterday (if any).
+               // actually if lastCompleted is TODAY, it means yesterday completion logic was already handled
+               // OR the user broke the streak yesterday but started today.
+               // To differntiate: check currentStreak.
+               // If currentStreak > 0, it means the streak was valid up to yesterday.
+               // So we keep it.
+               newStreak = habit.currentStreak;
+            } else {
+               // Missed yesterday -> Reset streak
+               // Unless it's a non-daily habit?
+               if (habit.frequency == 'daily') {
+                 newStreak = 0;
+               }
+            }
+          } else {
+            newStreak = 0;
+          }
+
           if (newStreak > newBestStreak) {
             newBestStreak = newStreak;
           }
 
-          // Check if streak should be broken
-          // If the habit was NOT completed yesterday, the streak is broken
-          if (habit.lastCompleted != null) {
-            if (!_isSameDay(habit.lastCompleted!, yesterday) && 
-                !_isSameDay(habit.lastCompleted!, today)) {
-              newStreak = 0; // Streak broken — missed yesterday
-            }
+          // Reset progress for the new day
+          // CRITICAL FIX: If the habit was already completed/updated TODAY (via user interaction),
+          // DO NOT reset progress to 0.
+          int currentProgressToSet = 0;
+          bool shouldRespectCurrentProgress = false;
+
+          if (habit.lastCompleted != null && _isSameDay(habit.lastCompleted!, today)) {
+             shouldRespectCurrentProgress = true;
+             currentProgressToSet = habit.currentProgress;
           }
 
-          if (habit.currentProgress > 0 || newStreak != habit.currentStreak || newBestStreak != habit.bestStreak) {
+          // Only update if changes found OR if we need to set dateUpdated
+          if (habit.currentProgress > 0 || newStreak != habit.currentStreak || newBestStreak != habit.bestStreak || !shouldRespectCurrentProgress || habit.dateUpdated == null || !_isSameDay(habit.dateUpdated!, today)) {
             final updatedHabit = await _repository.updateHabit(
               habit.id!,
-              currentProgress: 0,
+              currentProgress: currentProgressToSet,
               currentStreak: newStreak,
               bestStreak: newBestStreak,
+              dateUpdated: today, // MARK AS UPDATED TODAY
             );
             _habits[i] = updatedHabit;
           }
@@ -361,9 +503,38 @@ class HabitProvider extends ChangeNotifier {
   }
 
   bool _shouldResetForFrequency(Habit habit, DateTime today) {
+    // If goal type is 'period', we only reset at the start of the period.
+    if (habit.goalType == 'period') {
+      if (habit.frequency == 'weekly') {
+        // Reset on Monday
+        return today.weekday == DateTime.monday;
+      } else if (habit.frequency == 'monthly') {
+        // Reset on 1st of month
+        return today.day == 1;
+      }
+    }
+
+    // Default 'daily' behavior (reset every scheduled day)
     switch (habit.frequency) {
       case 'weekly':
-        return today.weekday == DateTime.monday;
+        // If it's a daily goal on a weekly habit, we reset on every scheduled day.
+        // If customDays are set, reset on those days.
+        // If no customDays, assume every day (default)? Or maybe Monday?
+        // Actually for "Daily" goal on "Weekly" habit without custom days implies "Every day of the week"?
+        // Or does it mean "Once a week, but treated as a daily task"?
+        // Let's assume:
+        // Weekly + Daily Goal + Custom Days -> Reset on Custom Days
+        // Weekly + Daily Goal + No Custom Days -> Reset every day (standard daily behavior)
+        if (habit.customDays != null && habit.customDays!.isNotEmpty) {
+           return habit.customDays!.contains(today.weekday);
+        }
+        return true; // Default to daily reset if no specific days
+      case 'monthly':
+        // Monthly + Daily Goal + Custom Days -> Reset on Custom Days
+        if (habit.customDays != null && habit.customDays!.isNotEmpty) {
+           return habit.customDays!.contains(today.day);
+        }
+        return true;
       case 'custom':
         return habit.customDays?.contains(today.weekday) ?? false;
       default:
@@ -372,11 +543,16 @@ class HabitProvider extends ChangeNotifier {
   }
 
   bool _isSameDay(DateTime a, DateTime b) {
-    return a.year == b.year && a.month == b.month && a.day == b.day;
+    final localA = a.toLocal();
+    final localB = b.toLocal();
+    return localA.year == localB.year && localA.month == localB.month && localA.day == localB.day;
   }
 
   Future<void> deleteHabit(int id) async {
     try {
+      // First delete all associated logs (cascade delete)
+      await _repository.deleteAllHabitLogs(id);
+      // Then delete the habit
       await _repository.deleteHabit(id);
       _habits.removeWhere((h) => h.id == id);
       await _cache.cacheHabits(_habits);

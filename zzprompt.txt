@@ -1,0 +1,4 @@
+Claude:
+
+Look at the flutter project, and look at specifically the habits. Also look at the IOS widget. When using the widget and selecting habits in the widget settings nothing shows up on the widget. The widget should show the top habits in their color and their progress count/target count and if the habits target count is 5 or below and the user clicks on the habit it adds one to the habit progress count. If the target count is above 5 then it completes the habit when clicked and when a habit it completed it moves down or off in the list to make room for an uncompleted habit.
+

@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import '../providers/habit_provider.dart';
 import '../widgets/habit_card.dart';
 import '../widgets/habit_dialog.dart';
 import '../widgets/reports_view.dart';
+import '../../data/models/habit.dart';
 
 class HabitsScreen extends StatefulWidget {
   const HabitsScreen({super.key});
@@ -14,12 +16,56 @@ class HabitsScreen extends StatefulWidget {
 
 class _HabitsScreenState extends State<HabitsScreen> {
   int _selectedTab = 0; // 0 for Habits, 1 for Reports
+  bool _showAll = false; // Toggle for "Today" vs "All/Manage" view
 
   @override
   void initState() {
     super.initState();
     Future.microtask(() =>
         Provider.of<HabitProvider>(context, listen: false).fetchHabits());
+  }
+
+  bool _isScheduledForToday(Habit habit) {
+    final now = DateTime.now();
+    
+    // 1. Daily
+    if (habit.frequency == 'daily') {
+      if (habit.repeatInterval == 1) return true;
+      // If interval > 1, check against creation date
+      // If createdAt is null, assume true to be safe, or false? defaulting to true.
+      if (habit.createdAt == null) return true;
+      
+      final daysDiff = now.difference(habit.createdAt!).inDays;
+      return daysDiff % habit.repeatInterval == 0;
+    }
+    
+    // 2. Weekly
+    if (habit.frequency == 'weekly') {
+      // If no custom days, assume everyday or maybe default to none? 
+      // Usually "weekly" implies some days selected. If none, maybe it means same day of creation?
+      // Let's assume if customDays is empty/null, it shows up if interval logic matches week?
+      // Re-reading RecurringPicker: defaults to empty customDays when switching.
+      // If customDays is empty, maybe show every day? Or show warning?
+      // Let's strictly check customDays if present.
+      if (habit.customDays != null && habit.customDays!.isNotEmpty) {
+        return habit.customDays!.contains(now.weekday);
+      }
+      return true; // Fallback
+    }
+    
+    // 3. Monthly
+    if (habit.frequency == 'monthly') {
+      if (habit.customDays != null && habit.customDays!.isNotEmpty) {
+        return habit.customDays!.contains(now.day);
+      }
+      // Fallback: if no specific dates, maybe matched by creation day?
+      if (habit.createdAt != null) {
+        return now.day == habit.createdAt!.day;
+      }
+      return false; // Safest fallback
+    }
+    
+    return true;
   }
 
   @override
@@ -82,18 +128,11 @@ class _HabitsScreenState extends State<HabitsScreen> {
                   children: [
                     _buildTabTitle(
                       context,
-                      title: 'Habits',
+                      title: _selectedTab == 0 && _showAll ? 'All' : 'Habits',
                       index: 0,
                       isSelected: _selectedTab == 0,
                     ),
-                    const Spacer(), // Pushes Reports to right as requested? "reports title aligned on the right"
-                    // Wait, user said "habits title is perfect there should be a reports title aligned on the right"
-                    // Does this mean right side of SCREEN or just to the right of Habits?
-                    // "whichever one is selected is highlighted iwth the accent color"
-                    // I'll put them in a Row with a Spacer between them to align Reports to the far right, 
-                    // OR I can just align them left/center. 
-                    // "reports title aligned on the right" implies far right.
-                    
+                    const Spacer(), 
                     _buildTabTitle(
                       context,
                       title: 'Reports',
@@ -119,7 +158,19 @@ class _HabitsScreenState extends State<HabitsScreen> {
   Widget _buildTabTitle(BuildContext context, {required String title, required int index, required bool isSelected}) {
     final primaryColor = Theme.of(context).colorScheme.primary;
     return GestureDetector(
-      onTap: () => setState(() => _selectedTab = index),
+      onTap: () {
+        if (index == 0 && _selectedTab == 0) {
+          // Toggle Show All if tapping already selected "Habits" tab
+          setState(() => _showAll = !_showAll);
+        } else {
+          setState(() {
+            _selectedTab = index;
+            // Reset to Today view when switching tabs? Or keep state?
+            // If switching TO habits, maybe reset `_showAll` to false? User didn't specify.
+            if (index == 0) _showAll = false; 
+          });
+        }
+      },
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
         decoration: BoxDecoration(
@@ -127,11 +178,15 @@ class _HabitsScreenState extends State<HabitsScreen> {
               ? Border(bottom: BorderSide(color: primaryColor, width: 2))
               : null,
         ),
-        child: Text(
-          title,
-          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-            fontWeight: FontWeight.bold,
-            color: isSelected ? primaryColor : Colors.white.withValues(alpha: 0.5),
+        child: AnimatedSwitcher(
+           duration: const Duration(milliseconds: 200),
+           child: Text(
+            title,
+            key: ValueKey(title),
+            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: isSelected ? primaryColor : Colors.white.withValues(alpha: 0.5),
+            ),
           ),
         ),
       ),
@@ -139,7 +194,12 @@ class _HabitsScreenState extends State<HabitsScreen> {
   }
 
   Widget _buildHabitsList(BuildContext context, HabitProvider provider) {
-    if (provider.habits.isEmpty) {
+    // Filter habits
+    final visibleHabits = _showAll 
+        ? provider.habits 
+        : provider.habits.where(_isScheduledForToday).toList();
+
+    if (visibleHabits.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -151,7 +211,7 @@ class _HabitsScreenState extends State<HabitsScreen> {
             ),
             const SizedBox(height: 16),
             Text(
-              'No habits yet',
+              _showAll ? 'No habits yet' : 'No habits for today',
               style: TextStyle(
                 color: Colors.white.withValues(alpha: 0.5),
                 fontSize: 18,
@@ -177,27 +237,68 @@ class _HabitsScreenState extends State<HabitsScreen> {
       backgroundColor: const Color(0xFF1E1E1E),
       child: ListView.builder(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8).copyWith(bottom: 100),
-        itemCount: provider.habits.length,
+        itemCount: visibleHabits.length,
         itemBuilder: (context, index) {
-          final habit = provider.habits[index];
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 16),
-            child: InkWell(
-              onTap: () {
-                showDialog(
-                  context: context,
-                  builder: (context) =>
-                      HabitDialog(habit: habit),
-                );
-              },
-              borderRadius: BorderRadius.circular(16),
-              child: HabitCard(
-                habit: habit,
-                onToggle: () => provider.toggleHabit(habit.id!),
-                onDelete: () => provider.deleteHabit(habit.id!),
-              ),
-            ),
+          final habit = visibleHabits[index];
+
+          final card = HabitCard(
+            habit: habit,
+            isManagementMode: _showAll,
+            onToggle: () => provider.toggleHabit(habit.id!),
+            onDelete: () => provider.deleteHabit(habit.id!),
+            onProgressChange: (newProgress) {
+              provider.updateProgress(habit.id!, newProgress);
+            },
           );
+
+          if (_showAll) {
+            // All/Management View: Swipe to Delete
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: Dismissible(
+                key: ValueKey(habit.id),
+                direction: DismissDirection.endToStart,
+                onDismissed: (_) {
+                   provider.deleteHabit(habit.id!);
+                },
+                background: Container(
+                  alignment: Alignment.centerRight,
+                  padding: const EdgeInsets.only(right: 20),
+                  decoration: BoxDecoration(
+                    color: Colors.red,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: const Icon(Icons.delete, color: Colors.white),
+                ),
+                child: InkWell(
+                  onTap: () {
+                    showDialog(
+                      context: context,
+                      builder: (context) => HabitDialog(habit: habit),
+                    );
+                  },
+                  borderRadius: BorderRadius.circular(16),
+                  child: card,
+                ),
+              ),
+            ).animate().fadeIn().slideX(begin: 0.2, end: 0);
+          } else {
+            // Today View: Swipe to Fill (Internal to HabitCard) + Tap to Complete
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: InkWell(
+                onTap: () {
+                   if (habit.isCompleted) {
+                     provider.updateProgress(habit.id!, 0);
+                   } else {
+                     provider.completeHabit(habit.id!);
+                   }
+                },
+                borderRadius: BorderRadius.circular(16),
+                child: card,
+              ),
+            ).animate().fadeIn().slideX(begin: 0.2, end: 0);
+          }
         },
       ),
     );

@@ -8,6 +8,7 @@ class TodoList {
   final String title;
   final String? color; // Hex string
   final int? order; // Custom sort order
+  @JsonKey(name: 'sort_option')
   final String? sortOption; // 'date', 'priority', 'custom'
 
   TodoList({

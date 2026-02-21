@@ -46,13 +46,18 @@ struct HabitItem: Codable, Identifiable {
     let detail: String?
     let icon: String?
     let color: String?
-    let target_count: Int
-    let current_progress: Int
-    let current_streak: Int
-    let best_streak: Int
+    let target_count: Int?
+    let current_progress: Int?
+    let current_streak: Int?
+    let best_streak: Int?
+
+    var targetCount: Int { target_count ?? 1 }
+    var currentProgress: Int { current_progress ?? 0 }
+    var currentStreak: Int { current_streak ?? 0 }
+    var bestStreak: Int { best_streak ?? 0 }
 
     var isCompleted: Bool {
-        current_progress >= target_count
+        currentProgress >= targetCount
     }
 }
 
@@ -125,17 +130,44 @@ class DirectusAPI {
         }
     }
 
-    static func incrementHabit(habitId: Int, newProgress: Int) async -> Bool {
+    static func incrementHabit(habitId: Int, newProgress: Int, isCompleting: Bool) async -> Bool {
         guard let url = URL(string: "\(baseUrl)/items/habits/\(habitId)") else { return false }
         var request = URLRequest(url: url)
         request.httpMethod = "PATCH"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try? JSONSerialization.data(withJSONObject: ["current_progress": newProgress])
+        
+        var payload: [String: Any] = ["current_progress": newProgress]
+        
+        let formatter = ISO8601DateFormatter()
+        // Format to standard localized-equivalent string (Directus uses ISO8601 locally now from Flutter app)
+        let dateString = formatter.string(from: Date())
+        
+        if isCompleting {
+            payload["last_completed"] = dateString
+        }
+        
+        request.httpBody = try? JSONSerialization.data(withJSONObject: payload)
 
         do {
             let (_, response) = try await URLSession.shared.data(for: request)
-            if let httpResponse = response as? HTTPURLResponse {
-                return httpResponse.statusCode >= 200 && httpResponse.statusCode < 300
+            if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 200 && httpResponse.statusCode < 300 {
+                
+                // If it was just completed, we must log it like the app does
+                if isCompleting {
+                    guard let logUrl = URL(string: "\(baseUrl)/items/habit_logs") else { return true }
+                    var logRequest = URLRequest(url: logUrl)
+                    logRequest.httpMethod = "POST"
+                    logRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+                    let logPayload: [String: Any] = [
+                        "habit_id": habitId,
+                        "date": dateString,
+                        "completed_count": newProgress
+                    ]
+                    logRequest.httpBody = try? JSONSerialization.data(withJSONObject: logPayload)
+                    let _ = try? await URLSession.shared.data(for: logRequest)
+                }
+                
+                return true
             }
             return false
         } catch {
@@ -182,16 +214,24 @@ struct ToggleHabitIntent: AppIntent {
 
     @Parameter(title: "New Progress")
     var newProgress: Int
-
+    
+    @Parameter(title: "Is Completing")
+    var isCompleting: Bool
+    
     init() {}
 
     init(habitId: Int, currentProgress: Int, targetCount: Int) {
         self.habitId = habitId
-        self.newProgress = min(currentProgress + 1, targetCount)
+        if targetCount <= 5 {
+            self.newProgress = min(currentProgress + 1, targetCount)
+        } else {
+            self.newProgress = targetCount
+        }
+        self.isCompleting = self.newProgress >= targetCount
     }
 
     func perform() async throws -> some IntentResult {
-        let _ = await DirectusAPI.incrementHabit(habitId: habitId, newProgress: newProgress)
+        let _ = await DirectusAPI.incrementHabit(habitId: habitId, newProgress: newProgress, isCompleting: isCompleting)
         WidgetCenter.shared.reloadAllTimelines()
         return .result()
     }
@@ -420,12 +460,17 @@ struct HabitRowView: View {
                     .foregroundColor(habit.isCompleted ? .secondary : .primary)
                     .lineLimit(1)
 
-                HStack(spacing: 4) {
-                    if habit.current_streak > 0 {
+                HStack(spacing: 6) {
+                    if habit.targetCount > 1 {
+                        Text("\(habit.currentProgress)/\(habit.targetCount)")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundColor(habit.isCompleted ? .secondary : .secondary)
+                    }
+                    if habit.currentStreak > 0 {
                         Image(systemName: "flame.fill")
                             .font(.system(size: 8))
                             .foregroundColor(.orange)
-                        Text("\(habit.current_streak)")
+                        Text("\(habit.currentStreak)")
                             .font(.system(size: 10))
                             .foregroundColor(.orange)
                     }
@@ -637,15 +682,22 @@ struct TaskItWidgetEntryView: View {
             }
 
         case .habits:
-            let habitsList = Array(entry.habits.prefix(maxItems))
+            // Sort to move uncompleted habits to the top
+            let sortedHabits = entry.habits.sorted { a, b in
+                if a.isCompleted != b.isCompleted {
+                    return !a.isCompleted && b.isCompleted
+                }
+                return false
+            }
+            let habitsList = Array(sortedHabits.prefix(maxItems))
             if habitsList.isEmpty {
                 emptyView(message: "No habits yet")
             } else {
                 ForEach(habitsList) { habit in
                     Button(intent: ToggleHabitIntent(
                         habitId: habit.id,
-                        currentProgress: habit.current_progress,
-                        targetCount: habit.target_count
+                        currentProgress: habit.currentProgress,
+                        targetCount: habit.targetCount
                     )) {
                         HabitRowView(habit: habit)
                     }

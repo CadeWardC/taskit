@@ -14,15 +14,18 @@ class AuthProvider extends ChangeNotifier {
 
   String? get currentUserId => _currentUserId;
   bool get isLoading => _isLoading;
-  bool get isAuthenticated => _currentUserId != null;
+  bool get isAuthenticated => _currentUserId != null && _currentUserId!.isNotEmpty;
 
   Future<void> _loadUser() async {
     final prefs = await SharedPreferences.getInstance();
-    _currentUserId = prefs.getString('current_user_id');
-    if (_currentUserId != null) {
-      _directusService.setUserId(_currentUserId!);
+    final userId = prefs.getString('current_user_id');
+    if (userId != null && userId.isNotEmpty) {
+      _currentUserId = userId;
+      _directusService.setUserId(userId);
       // Sync user ID to iOS widget
-      WidgetService.syncUserId(_currentUserId!);
+      WidgetService.syncUserId(userId);
+    } else {
+      _currentUserId = null;
     }
     _isLoading = false;
     notifyListeners();
