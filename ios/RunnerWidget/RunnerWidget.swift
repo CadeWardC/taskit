@@ -818,8 +818,8 @@ struct RunnerWidget_Previews: PreviewProvider {
             date: Date(),
             tasks: [],
             habits: [
-                HabitItem(id: 1, title: "Drink Water", detail: nil, icon: "\u{1F4A7}", color: "#2196F3", target_count: 1, current_progress: 0, current_streak: 5, best_streak: 12),
-                HabitItem(id: 2, title: "Exercise", detail: nil, icon: "\u{1F4AA}", color: "#4CAF50", target_count: 1, current_progress: 1, current_streak: 3, best_streak: 10),
+                HabitItem(id: 1, title: "Drink Water", detail: nil, icon: "\u{1F4A7}", color: "#2196F3", target_count: FlexibleInt(1), current_progress: FlexibleInt(0), current_streak: FlexibleInt(5), best_streak: FlexibleInt(12)),
+                HabitItem(id: 2, title: "Exercise", detail: nil, icon: "\u{1F4AA}", color: "#4CAF50", target_count: FlexibleInt(1), current_progress: FlexibleInt(1), current_streak: FlexibleInt(3), best_streak: FlexibleInt(10)),
             ],
             lists: [],
             displayMode: .habits,
