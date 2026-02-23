@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../providers/todo_provider.dart';
 import '../widgets/task_widgets.dart';
 import '../../data/models/todo.dart';
+import '../../data/models/todo_list.dart';
 
 class CalendarScreen extends StatefulWidget {
   const CalendarScreen({super.key});
@@ -36,6 +37,42 @@ class _CalendarScreenState extends State<CalendarScreen> {
     return _getTasksForDate(todos, date).isNotEmpty;
   }
 
+  /// Returns up to 3 unique list colors for tasks due on this date.
+  List<Color> _getListColorsForDate(List<Todo> todos, List<TodoList> lists, DateTime date) {
+    final tasks = _getTasksForDate(todos, date);
+    final seen = <int?>{};
+    final colors = <Color>[];
+
+    for (final task in tasks) {
+      if (seen.contains(task.listId)) continue;
+      seen.add(task.listId);
+
+      if (task.listId != null) {
+        final list = lists.cast<TodoList?>().firstWhere(
+          (l) => l?.id == task.listId,
+          orElse: () => null,
+        );
+        if (list != null && list.color != null) {
+          colors.add(_hexToColor(list.color!));
+        } else {
+          colors.add(Colors.grey);
+        }
+      } else {
+        colors.add(Colors.grey);
+      }
+
+      if (colors.length >= 3) break;
+    }
+
+    return colors;
+  }
+
+  Color _hexToColor(String hex) {
+    hex = hex.replaceAll('#', '');
+    if (hex.length == 6) hex = 'FF$hex';
+    return Color(int.parse(hex, radix: 16));
+  }
+
   @override
   Widget build(BuildContext context) {
     return Consumer<TodoProvider>(
@@ -65,70 +102,79 @@ class _CalendarScreenState extends State<CalendarScreen> {
                               ?.copyWith(fontWeight: FontWeight.bold),
                         ),
                       ),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            IconButton(
-                              onPressed: () {
-                                setState(() {
-                                  _focusedMonth = DateTime(
-                                    _focusedMonth.year,
-                                    _focusedMonth.month - 1,
-                                  );
-                                });
-                              },
-                              icon: const Icon(Icons.chevron_left),
-                            ),
-                            Text(
-                              DateFormat('MMMM yyyy').format(_focusedMonth),
-                              style: Theme.of(context).textTheme.titleLarge
-                                  ?.copyWith(fontWeight: FontWeight.w600),
-                            ),
-                            IconButton(
-                              onPressed: () {
-                                setState(() {
-                                  _focusedMonth = DateTime(
-                                    _focusedMonth.year,
-                                    _focusedMonth.month + 1,
-                                  );
-                                });
-                              },
-                              icon: const Icon(Icons.chevron_right),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      // Weekday headers
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: Row(
-                          children:
-                              ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-                                  .map(
-                                    (day) => Expanded(
-                                      child: Center(
-                                        child: Text(
-                                          day,
-                                          style: TextStyle(
-                                            color: Colors.white.withValues(
-                                              alpha: 0.5,
-                                            ),
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                      ),
+                      Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 800),
+                          child: Column(
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 16),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    IconButton(
+                                      onPressed: () {
+                                        setState(() {
+                                          _focusedMonth = DateTime(
+                                            _focusedMonth.year,
+                                            _focusedMonth.month - 1,
+                                          );
+                                        });
+                                      },
+                                      icon: const Icon(Icons.chevron_left),
                                     ),
-                                  )
-                                  .toList(),
+                                    Text(
+                                      DateFormat('MMMM yyyy').format(_focusedMonth),
+                                      style: Theme.of(context).textTheme.titleLarge
+                                          ?.copyWith(fontWeight: FontWeight.w600),
+                                    ),
+                                    IconButton(
+                                      onPressed: () {
+                                        setState(() {
+                                          _focusedMonth = DateTime(
+                                            _focusedMonth.year,
+                                            _focusedMonth.month + 1,
+                                          );
+                                        });
+                                      },
+                                      icon: const Icon(Icons.chevron_right),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              // Weekday headers
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 16),
+                                child: Row(
+                                  children:
+                                      ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+                                          .map(
+                                            (day) => Expanded(
+                                              child: Center(
+                                                child: Text(
+                                                  day,
+                                                  style: TextStyle(
+                                                    color: Colors.white.withValues(
+                                                      alpha: 0.5,
+                                                    ),
+                                                    fontSize: 12,
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          )
+                                          .toList(),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              // Calendar grid
+                              _buildCalendarGrid(provider.todos, provider.lists),
+                            ],
+                          ),
                         ),
                       ),
-                      const SizedBox(height: 8),
-                      // Calendar grid
-                      _buildCalendarGrid(provider.todos),
                       const SizedBox(height: 16),
                       // Selected date header
                       Padding(
@@ -199,7 +245,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
     );
   }
 
-  Widget _buildCalendarGrid(List<Todo> todos) {
+  Widget _buildCalendarGrid(List<Todo> todos, List<TodoList> lists) {
     final firstDay = DateTime(_focusedMonth.year, _focusedMonth.month, 1);
     final lastDay = DateTime(_focusedMonth.year, _focusedMonth.month + 1, 0);
     final startPadding = firstDay.weekday % 7; // Sunday = 0
@@ -222,7 +268,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
           date.year == _selectedDate.year &&
           date.month == _selectedDate.month &&
           date.day == _selectedDate.day;
-      final hasTasks = _hasTasksOnDate(todos, date);
+      final dotColors = _getListColorsForDate(todos, lists, date);
 
       days.add(
         GestureDetector(
@@ -256,15 +302,18 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           : FontWeight.normal,
                     ),
                   ),
-                  if (hasTasks)
-                    Container(
-                      width: 6,
-                      height: 6,
-                      margin: const EdgeInsets.only(top: 2),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.secondary,
-                        shape: BoxShape.circle,
-                      ),
+                  if (dotColors.isNotEmpty)
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: dotColors.map((c) => Container(
+                        width: 5,
+                        height: 5,
+                        margin: const EdgeInsets.only(top: 2, left: 1, right: 1),
+                        decoration: BoxDecoration(
+                          color: c,
+                          shape: BoxShape.circle,
+                        ),
+                      )).toList(),
                     ),
                 ],
               ),

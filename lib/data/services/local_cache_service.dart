@@ -107,4 +107,51 @@ class LocalCacheService {
       return null;
     }
   }
+
+  // ── Last Open List ──────────────────────────────────────────────
+
+  static const _keyLastOpenListId = 'cache_last_open_list_id';
+  static int? _memLastOpenListId;
+  static bool _lastOpenListLoaded = false;
+
+  /// Call once at app startup to warm the in-memory mirror.
+  Future<void> preloadLastOpenListId() async {
+    if (_lastOpenListLoaded) return;
+    final prefs = await SharedPreferences.getInstance();
+    _memLastOpenListId = prefs.getInt(_keyLastOpenListId);
+    _lastOpenListLoaded = true;
+  }
+
+  /// Synchronous getter — returns instantly from memory.
+  int? getLastOpenListIdSync() => _memLastOpenListId;
+
+  Future<void> setLastOpenListId(int? listId) async {
+    _memLastOpenListId = listId;
+    final prefs = await SharedPreferences.getInstance();
+    if (listId != null) {
+      await prefs.setInt(_keyLastOpenListId, listId);
+    } else {
+      await prefs.remove(_keyLastOpenListId);
+    }
+  }
+
+  Future<int?> getLastOpenListId() async {
+    if (_lastOpenListLoaded) return _memLastOpenListId;
+    await preloadLastOpenListId();
+    return _memLastOpenListId;
+  }
+
+  // ── Inbox Filter Mode ─────────────────────────────────────────
+
+  static const _keyInboxFilter = 'cache_inbox_filter';
+
+  Future<void> setInboxFilter(String filter) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keyInboxFilter, filter);
+  }
+
+  Future<String> getInboxFilter() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_keyInboxFilter) ?? 'Today';
+  }
 }

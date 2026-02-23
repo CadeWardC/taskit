@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/todo_provider.dart';
 import '../widgets/color_selector.dart';
+import '../../data/services/local_cache_service.dart';
 import 'list_detail_screen.dart';
 
 class ListsScreen extends StatefulWidget {
@@ -12,6 +13,71 @@ class ListsScreen extends StatefulWidget {
 }
 
 class _ListsScreenState extends State<ListsScreen> {
+  final _cache = LocalCacheService();
+  bool _didCheckCache = false;
+  bool _isCheckingCache = true;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_didCheckCache) {
+      _didCheckCache = true;
+      _restoreLastList();
+    }
+  }
+
+  void _restoreLastList() {
+    final lastListId = _cache.getLastOpenListIdSync();
+    if (lastListId != null) {
+      final provider = context.read<TodoProvider>();
+      final lists = provider.lists;
+      final match = lists.cast<dynamic>().firstWhere(
+        (l) => l.id == lastListId,
+        orElse: () => null,
+      );
+      if (match != null) {
+        // Defer push to after the build frame — Navigator is locked during build
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            _openListFromCache(context, match);
+          }
+        });
+        return;
+      }
+    }
+    // No cached list or not found — reveal lists screen immediately
+    setState(() => _isCheckingCache = false);
+  }
+
+  void _openListFromCache(BuildContext context, dynamic list) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ListDetailScreen(list: list),
+      ),
+    ).then((_) {
+      _cache.setLastOpenListId(null);
+      if (mounted) {
+        setState(() => _isCheckingCache = false);
+        context.read<TodoProvider>().setSelectedListId(null);
+      }
+    });
+  }
+
+  void _openList(BuildContext context, dynamic list) {
+    _cache.setLastOpenListId(list.id);
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ListDetailScreen(list: list),
+      ),
+    ).then((_) {
+      _cache.setLastOpenListId(null);
+      if (context.mounted) {
+        context.read<TodoProvider>().setSelectedListId(null);
+      }
+    });
+  }
 
   void _showAddListDialog(BuildContext context) {
     final titleController = TextEditingController();
@@ -80,6 +146,11 @@ class _ListsScreenState extends State<ListsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Don't show the lists screen while checking if we need to auto-open a cached list
+    if (_isCheckingCache) {
+      return const SizedBox.shrink();
+    }
+
     return Consumer<TodoProvider>(
       builder: (context, provider, child) {
         if (provider.isLoading && provider.lists.isEmpty) {
@@ -229,16 +300,7 @@ class _ListsScreenState extends State<ListsScreen> {
                               color: const Color(0xFF1E1E1E),
                               child: InkWell(
                                 onTap: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => ListDetailScreen(list: list),
-                                    ),
-                                  ).then((_) {
-                                    if (context.mounted) {
-                                      context.read<TodoProvider>().setSelectedListId(null);
-                                    }
-                                  });
+                                  _openList(context, list);
                                 },
                                 onLongPress: () => _showDeleteListDialog(context, list),
                                 borderRadius: BorderRadius.circular(16),

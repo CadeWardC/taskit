@@ -223,6 +223,7 @@ class DirectusService {
     try {
       final response = await _dio.get('/items/habits', queryParameters: {
         'filter[user_id][_eq]': _currentUserId,
+        'fields': '*',
       });
       final data = response.data['data'] as List;
       return data.map((e) => Habit.fromJson(e)).toList();

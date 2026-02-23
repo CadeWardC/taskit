@@ -178,14 +178,44 @@ class _HabitsScreenState extends State<HabitsScreen> {
               ? Border(bottom: BorderSide(color: primaryColor, width: 2))
               : null,
         ),
-        child: AnimatedSwitcher(
-           duration: const Duration(milliseconds: 200),
-           child: Text(
-            title,
-            key: ValueKey(title),
-            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: isSelected ? primaryColor : Colors.white.withValues(alpha: 0.5),
+        child: AnimatedSize(
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+          alignment: Alignment.centerLeft,
+          clipBehavior: Clip.none,
+          child: AnimatedSwitcher(
+             duration: const Duration(milliseconds: 300),
+             switchInCurve: Curves.easeOutCubic,
+             switchOutCurve: Curves.easeInCubic,
+             layoutBuilder: (currentChild, previousChildren) {
+               return Stack(
+                 alignment: Alignment.centerLeft,
+                 children: [
+                   ...previousChildren,
+                   if (currentChild != null) currentChild,
+                 ],
+               );
+             },
+             transitionBuilder: (child, animation) {
+               final offsetAnimation = Tween<Offset>(
+                 begin: const Offset(0.0, 0.5),
+                 end: Offset.zero,
+               ).animate(animation);
+               return FadeTransition(
+                 opacity: animation,
+                 child: SlideTransition(
+                   position: offsetAnimation,
+                   child: child,
+                 ),
+               );
+             },
+             child: Text(
+              title,
+              key: ValueKey(title),
+              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: isSelected ? primaryColor : Colors.white.withValues(alpha: 0.5),
+              ),
             ),
           ),
         ),

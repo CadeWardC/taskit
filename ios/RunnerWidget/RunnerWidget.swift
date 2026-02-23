@@ -53,8 +53,19 @@ struct TaskItem: Codable, Identifiable {
     let priority: String?
     let list_id: FlexibleInt?
     let due_date: String?
+    let order: FlexibleInt?
     
     var listId: Int? { list_id?.value }
+    var sortOrder: Int { order?.value ?? 999 }
+    
+    var priorityRank: Int {
+        switch priority {
+        case "high": return 0
+        case "medium": return 1
+        case "low": return 2
+        default: return 3
+        }
+    }
 }
 
 struct HabitItem: Codable, Identifiable {
@@ -82,6 +93,9 @@ struct ListItem: Codable, Identifiable {
     let id: Int
     let title: String
     let color: String?
+    let sort_option: String?
+    
+    var sortOption: String { sort_option ?? "custom" }
 }
 
 // MARK: - API Service
@@ -348,8 +362,8 @@ struct Provider: AppIntentTimelineProvider {
         TaskItEntry(
             date: Date(),
             tasks: [
-                TaskItem(id: 1, title: "Example Task", detail: nil, is_completed: false, priority: "medium", list_id: FlexibleInt(nil), due_date: nil),
-                TaskItem(id: 2, title: "Another Task", detail: "With details", is_completed: false, priority: "none", list_id: FlexibleInt(nil), due_date: nil),
+                TaskItem(id: 1, title: "Example Task", detail: nil, is_completed: false, priority: "medium", list_id: FlexibleInt(nil), due_date: nil, order: FlexibleInt(0)),
+                TaskItem(id: 2, title: "Another Task", detail: "With details", is_completed: false, priority: "none", list_id: FlexibleInt(nil), due_date: nil, order: FlexibleInt(1)),
             ],
             habits: [],
             lists: [],
@@ -473,47 +487,79 @@ struct HabitRowView: View {
         return .purple
     }
 
+    var progressRatio: Double {
+        guard habit.targetCount > 0 else { return habit.isCompleted ? 1.0 : 0.0 }
+        return min(Double(habit.currentProgress) / Double(habit.targetCount), 1.0)
+    }
+
     var body: some View {
         HStack(spacing: 8) {
+            // Emoji or progress circle
             if let icon = habit.icon, !icon.isEmpty {
                 Text(icon)
-                    .font(.system(size: 16))
-            } else {
-                Image(systemName: habit.isCompleted ? "checkmark.circle.fill" : "circle")
-                    .foregroundColor(habit.isCompleted ? habitColor : .gray)
-                    .font(.system(size: 16))
+                    .font(.system(size: 14))
             }
 
+            // Circular progress indicator
+            ZStack {
+                Circle()
+                    .stroke(Color.white.opacity(0.2), lineWidth: 2)
+                    .frame(width: 16, height: 16)
+                Circle()
+                    .trim(from: 0, to: progressRatio)
+                    .stroke(Color.white, lineWidth: 2)
+                    .rotationEffect(.degrees(-90))
+                    .frame(width: 16, height: 16)
+                if habit.isCompleted {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 8, weight: .bold))
+                        .foregroundColor(.white)
+                }
+            }
+
+            // Title and streak
             VStack(alignment: .leading, spacing: 1) {
                 Text(habit.title)
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(habit.isCompleted ? .secondary : .primary)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(.white)
+                    .strikethrough(habit.isCompleted)
+                    .opacity(habit.isCompleted ? 0.6 : 1.0)
                     .lineLimit(1)
 
-                HStack(spacing: 6) {
+                HStack(spacing: 4) {
                     if habit.targetCount > 1 {
                         Text("\(habit.currentProgress)/\(habit.targetCount)")
-                            .font(.system(size: 10, weight: .bold))
-                            .foregroundColor(habit.isCompleted ? .secondary : .secondary)
+                            .font(.system(size: 9, weight: .medium))
+                            .foregroundColor(.white.opacity(0.7))
                     }
                     if habit.currentStreak > 0 {
                         Image(systemName: "flame.fill")
-                            .font(.system(size: 8))
+                            .font(.system(size: 7))
                             .foregroundColor(.orange)
                         Text("\(habit.currentStreak)")
-                            .font(.system(size: 10))
+                            .font(.system(size: 9))
                             .foregroundColor(.orange)
                     }
                 }
             }
 
             Spacer()
-
-            Image(systemName: habit.isCompleted ? "checkmark.circle.fill" : "circle")
-                .foregroundColor(habit.isCompleted ? habitColor : .gray.opacity(0.4))
-                .font(.system(size: 16))
         }
-        .padding(.vertical, 2)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(habitColor)
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(Color.black.opacity(0.15))
+                        .frame(width: geo.size.width * progressRatio)
+                        .animation(.easeOut(duration: 0.3), value: progressRatio)
+                }
+            }
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 10))
     }
 }
 
@@ -681,6 +727,22 @@ struct TaskItWidgetEntryView: View {
 
         if let listId = entry.selectedListId {
             tasks = tasks.filter { $0.listId == listId }
+            
+            // Sort based on the list's sort_option
+            if let list = entry.lists.first(where: { $0.id == listId }) {
+                switch list.sortOption {
+                case "priority":
+                    tasks.sort { $0.priorityRank < $1.priorityRank }
+                case "date":
+                    tasks.sort { a, b in
+                        let dateA = a.due_date ?? "9999"
+                        let dateB = b.due_date ?? "9999"
+                        return dateA < dateB
+                    }
+                default: // "custom"
+                    tasks.sort { $0.sortOrder < $1.sortOrder }
+                }
+            }
         }
 
         return tasks
@@ -822,9 +884,9 @@ struct RunnerWidget_Previews: PreviewProvider {
             tasks: [],
             habits: [],
             lists: [
-                ListItem(id: 1, title: "Work", color: "#4CAF50"),
-                ListItem(id: 2, title: "Personal", color: "#2196F3"),
-                ListItem(id: 3, title: "Shopping", color: "#FF9800"),
+                ListItem(id: 1, title: "Work", color: "#4CAF50", sort_option: "custom"),
+                ListItem(id: 2, title: "Personal", color: "#2196F3", sort_option: "priority"),
+                ListItem(id: 3, title: "Shopping", color: "#FF9800", sort_option: "custom"),
             ],
             displayMode: .allTasks,
             selectedListId: nil,
@@ -838,12 +900,12 @@ struct RunnerWidget_Previews: PreviewProvider {
         TaskItWidgetEntryView(entry: TaskItEntry(
             date: Date(),
             tasks: [
-                TaskItem(id: 1, title: "Buy groceries", detail: "Milk, eggs, bread", is_completed: false, priority: "medium", list_id: FlexibleInt(1), due_date: nil),
-                TaskItem(id: 2, title: "Call dentist", detail: nil, is_completed: false, priority: "high", list_id: FlexibleInt(1), due_date: nil),
-                TaskItem(id: 3, title: "Review PR", detail: nil, is_completed: false, priority: "none", list_id: FlexibleInt(1), due_date: nil),
+                TaskItem(id: 1, title: "Buy groceries", detail: "Milk, eggs, bread", is_completed: false, priority: "medium", list_id: FlexibleInt(1), due_date: nil, order: FlexibleInt(0)),
+                TaskItem(id: 2, title: "Call dentist", detail: nil, is_completed: false, priority: "high", list_id: FlexibleInt(1), due_date: nil, order: FlexibleInt(1)),
+                TaskItem(id: 3, title: "Review PR", detail: nil, is_completed: false, priority: "none", list_id: FlexibleInt(1), due_date: nil, order: FlexibleInt(2)),
             ],
             habits: [],
-            lists: [ListItem(id: 1, title: "Work", color: "#4CAF50")],
+            lists: [ListItem(id: 1, title: "Work", color: "#4CAF50", sort_option: "priority")],
             displayMode: .allTasks,
             selectedListId: 1,
             userId: "test",

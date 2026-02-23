@@ -11,7 +11,9 @@ import 'presentation/providers/auth_provider.dart';
 import 'presentation/screens/main_shell.dart';
 import 'presentation/screens/login_screen.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await LocalCacheService().preloadLastOpenListId();
   runApp(const TaskItApp());
 }
 

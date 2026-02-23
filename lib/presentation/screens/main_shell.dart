@@ -57,9 +57,9 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
 
   final List<NavigationDestination> _navItems = const [
     NavigationDestination(
-      icon: Icon(Icons.wb_sunny_outlined),
-      selectedIcon: Icon(Icons.wb_sunny),
-      label: 'Today',
+      icon: Icon(Icons.inbox_outlined),
+      selectedIcon: Icon(Icons.inbox),
+      label: 'Inbox',
     ),
     NavigationDestination(
       icon: Icon(Icons.list_alt_outlined),

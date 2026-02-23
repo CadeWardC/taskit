@@ -77,7 +77,10 @@ class _ListDetailScreenState extends State<ListDetailScreen> {
             colors: [Color(0xFF121212), Color(0xFF2C2C2C)],
           ),
         ),
-        child: Consumer<TodoProvider>(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 800),
+            child: Consumer<TodoProvider>(
           builder: (context, provider, child) {
             final allTasks = provider.todos.where((t) => t.listId == widget.list.id).toList();
             final activeTasks = allTasks.where((t) => !t.isCompleted).toList();
@@ -283,6 +286,8 @@ class _ListDetailScreenState extends State<ListDetailScreen> {
                         ),
             );
           },
+        ),
+          ),
         ),
       ),
 
