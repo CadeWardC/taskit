@@ -629,7 +629,10 @@ struct TaskItWidgetEntryView: View {
 
                 // Content
                 contentView
+                
+                Spacer(minLength: 0)
             }
+            .frame(maxHeight: .infinity, alignment: .top)
             .padding(12)
         }
     }
