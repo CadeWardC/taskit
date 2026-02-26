@@ -939,6 +939,7 @@ struct RunnerWidget: Widget {
 
 // MARK: - Previews
 
+#if DEBUG
 struct RunnerWidget_Previews: PreviewProvider {
     static var previews: some View {
         // Preview: List picker view
@@ -995,3 +996,4 @@ struct RunnerWidget_Previews: PreviewProvider {
         .previewDisplayName("Habits")
     }
 }
+#endif

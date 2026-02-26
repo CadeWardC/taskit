@@ -1,1 +1,2 @@
 
+There is a couple of things I want to fix, when I add a date and time to a task and then clear it with the x and save changes the date for the task stays and does not get removed
