@@ -78,6 +78,11 @@ struct HabitItem: Codable, Identifiable {
     let current_progress: FlexibleInt?
     let current_streak: FlexibleInt?
     let best_streak: FlexibleInt?
+    
+    let frequency: String?
+    let repeat_interval: FlexibleInt?
+    let custom_days: [Int]?
+    let created_at: String?
 
     var targetCount: Int { target_count?.value ?? 1 }
     var currentProgress: Int { current_progress?.value ?? 0 }
@@ -86,6 +91,55 @@ struct HabitItem: Codable, Identifiable {
 
     var isCompleted: Bool {
         currentProgress >= targetCount
+    }
+    
+    var isScheduledForToday: Bool {
+        let freq = frequency ?? "daily"
+        let now = Date()
+        let calendar = Calendar.current
+        
+        if freq == "daily" {
+            let interval = repeat_interval?.value ?? 1
+            if interval == 1 { return true }
+            
+            if let createdAtString = created_at,
+               let createdAtDate = ISO8601DateFormatter().date(from: createdAtString) {
+                let startOfCreated = calendar.startOfDay(for: createdAtDate)
+                let startOfToday = calendar.startOfDay(for: now)
+                let components = calendar.dateComponents([.day], from: startOfCreated, to: startOfToday)
+                if let diff = components.day {
+                    return diff % interval == 0
+                }
+            }
+            return true
+        }
+        
+        if freq == "weekly" {
+            if let custom = custom_days, !custom.isEmpty {
+                // Swift weekday: Sunday = 1, Monday = 2... Saturday = 7
+                // Flutter weekday: Monday = 1, Sunday = 7
+                var flutterWeekday = calendar.component(.weekday, from: now) - 1 // Sunday=0, Monday=1
+                if flutterWeekday == 0 { flutterWeekday = 7 }
+                return custom.contains(flutterWeekday)
+            }
+            return true
+        }
+        
+        if freq == "monthly" {
+            if let custom = custom_days, !custom.isEmpty {
+                let dayOfMonth = calendar.component(.day, from: now)
+                return custom.contains(dayOfMonth)
+            }
+            if let createdAtString = created_at,
+               let createdAtDate = ISO8601DateFormatter().date(from: createdAtString) {
+                let createdDay = calendar.component(.day, from: createdAtDate)
+                let todayDay = calendar.component(.day, from: now)
+                return createdDay == todayDay
+            }
+            return false
+        }
+        
+        return true
     }
 }
 
@@ -751,22 +805,27 @@ struct TaskItWidgetEntryView: View {
         return tasks
     }
 
+    var scheduledHabits: [HabitItem] {
+        return entry.habits.filter { $0.isScheduledForToday }
+    }
+
     var itemCount: String {
         switch entry.displayMode {
         case .allTasks:
             return "\(filteredTasks.count) left"
         case .habits:
-            let done = entry.habits.filter { $0.isCompleted }.count
-            return "\(done)/\(entry.habits.count)"
+            let scheduled = scheduledHabits
+            let done = scheduled.filter { $0.isCompleted }.count
+            return "\(done)/\(scheduled.count)"
         }
     }
 
     var maxItems: Int {
         switch family {
         case .systemSmall: return 3
-        case .systemMedium: return 4
+        case .systemMedium: return 3
         case .systemLarge: return 8
-        default: return 4
+        default: return 3
         }
     }
 
@@ -804,7 +863,8 @@ struct TaskItWidgetEntryView: View {
 
         case .habits:
             // Sort to move uncompleted habits to the top
-            let sortedHabits = entry.habits.sorted { a, b in
+            let scheduled = scheduledHabits
+            let sortedHabits = scheduled.sorted { a, b in
                 if a.isCompleted != b.isCompleted {
                     return !a.isCompleted && b.isCompleted
                 }
@@ -812,7 +872,7 @@ struct TaskItWidgetEntryView: View {
             }
             let habitsList = Array(sortedHabits.prefix(maxItems))
             if habitsList.isEmpty {
-                emptyView(message: "No habits yet")
+                emptyView(message: "No habits today!")
             } else {
                 ForEach(habitsList) { habit in
                     Button(intent: ToggleHabitIntent(
