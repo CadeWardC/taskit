@@ -118,6 +118,7 @@ class DirectusService {
     String? title,
     String? detail,
     DateTime? dueDate,
+    bool clearDueDate = false,
     int? duration,
     String? priority,
     int? listId,
@@ -131,7 +132,11 @@ class DirectusService {
       if (isCompleted != null) data['is_completed'] = isCompleted;
       if (title != null) data['title'] = title;
       if (detail != null) data['detail'] = detail;
-      if (dueDate != null) data['due_date'] = dueDate.toIso8601String();
+      if (dueDate != null) {
+        data['due_date'] = dueDate.toIso8601String();
+      } else if (clearDueDate) {
+        data['due_date'] = null;
+      }
       if (duration != null) data['duration'] = duration;
       if (priority != null) data['priority'] = priority;
       if (listId != null) data['list_id'] = listId;

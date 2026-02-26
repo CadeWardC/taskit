@@ -386,6 +386,7 @@ class _TaskDialogState extends State<TaskDialog> {
                             priority: _priority,
                             duration: int.tryParse(_durationController.text),
                             dueDate: _dueDate,
+                            clearDueDate: widget.todo!.dueDate != null && _dueDate == null,
                             listId: _listId,
                             recurringFrequency: _recurringFrequency,
                             repeatInterval: _repeatInterval,
