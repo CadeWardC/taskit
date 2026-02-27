@@ -40,6 +40,14 @@ class TodoProvider extends ChangeNotifier {
   // Track the currently selected list globally
   int? _selectedListId;
   int? get selectedListId => _selectedListId;
+  
+  bool _isViewingInbox = false;
+  bool get isViewingInbox => _isViewingInbox;
+
+  void setViewingInbox(bool val) {
+    _isViewingInbox = val;
+    notifyListeners();
+  }
 
   void setSelectedListId(int? id) {
     _selectedListId = id;
@@ -295,6 +303,59 @@ class TodoProvider extends ChangeNotifier {
         await _saveCache();
         notifyListeners();
       }
+    } catch (e) {
+      _error = e.toString();
+      notifyListeners();
+    }
+  }
+
+  Future<void> deleteSection(int listId, String sectionName) async {
+    try {
+      // 1. Unassign all tasks from this section
+      final tasksInSection = _todos.where((t) => t.listId == listId && t.section == sectionName).toList();
+      if (tasksInSection.isNotEmpty) {
+        // We only want to remove the section property for tasks that match
+        for (final task in tasksInSection) {
+          final updatedTask = await _repository.updateTodo(task.id!, section: null);
+          final index = _todos.indexWhere((t) => t.id == task.id);
+          if (index != -1) {
+            _todos[index] = updatedTask;
+          }
+        }
+      }
+
+      // 2. Remove the section from the list
+      final listIndex = _lists.indexWhere((l) => l.id == listId);
+      if (listIndex != -1) {
+        final list = _lists[listIndex];
+        final newSections = List<String>.from(list.sections ?? [])..remove(sectionName);
+        
+        // 3. Revert layout if no sections remain
+        final newLayout = newSections.isEmpty ? null : list.sectionLayout;
+
+        if (newLayout == null && newSections.isEmpty) {
+             final updatedList = await _repository.updateList(
+              listId,
+              sections: newSections,
+              sectionLayout: null,
+            );
+             _lists[listIndex] = updatedList;
+        } else {
+             final updatedList = await _repository.updateList(
+              listId,
+              sections: newSections,
+              sectionLayout: list.sectionLayout, // Keep layout if sections remain
+            );
+             _lists[listIndex] = updatedList;
+        }
+        
+      }
+
+      _sortTodos();
+      _sortLists();
+      await _updateWidgetData();
+      await _saveCache();
+      notifyListeners();
     } catch (e) {
       _error = e.toString();
       notifyListeners();

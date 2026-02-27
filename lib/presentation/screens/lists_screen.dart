@@ -4,6 +4,7 @@ import '../providers/todo_provider.dart';
 import '../../data/services/local_cache_service.dart';
 import 'list_detail_screen.dart';
 import '../widgets/list_dialog.dart';
+import '../../data/models/todo_list.dart';
 
 class ListsScreen extends StatefulWidget {
   const ListsScreen({super.key});
@@ -125,6 +126,15 @@ class _ListsScreenState extends State<ListsScreen> {
                       'Lists',
                       style: Theme.of(context).textTheme.headlineMedium
                           ?.copyWith(fontWeight: FontWeight.bold),
+                    ),
+                    const Spacer(),
+                    IconButton(
+                      onPressed: () {
+                        final inboxList = TodoList(id: null, title: 'Inbox', color: '#BB86FC');
+                        _openList(context, inboxList);
+                      },
+                      icon: const Icon(Icons.inbox),
+                      tooltip: 'Inbox',
                     ),
                   ],
                 ),

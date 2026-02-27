@@ -103,103 +103,138 @@ class _TaskCardState extends State<TaskCard> with SingleTickerProviderStateMixin
         duration: const Duration(milliseconds: 300),
         opacity: _isChecking ? 0.0 : (widget.todo.isCompleted ? 0.5 : 1.0),
         curve: Curves.easeOut,
-        child: GlassContainer(
-          opacity: widget.todo.isCompleted ? 0.05 : 0.1,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.only(top: 2),
-                child: Checkbox(
-                  value: isDone,
-                  onChanged: _handleToggle,
-                  activeColor: widget.activeColor ?? Theme.of(context).colorScheme.primary,
-                  side: BorderSide(color: Colors.white.withValues(alpha: 0.5)),
-                  visualDensity: VisualDensity.compact,
-                ),
+        child: Dismissible(
+          key: ValueKey('task_${widget.todo.id}'),
+          direction: DismissDirection.endToStart,
+          confirmDismiss: (direction) async {
+            return await showDialog<bool>(
+              context: context,
+              builder: (context) => AlertDialog(
+                backgroundColor: const Color(0xFF1E1E1E),
+                title: const Text('Delete Task', style: TextStyle(color: Colors.white)),
+                content: Text('Are you sure you want to delete "${widget.todo.title}"?', style: const TextStyle(color: Colors.white70)),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context, false),
+                    child: const Text('Cancel', style: TextStyle(color: Colors.white70)),
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.pop(context, true),
+                    style: TextButton.styleFrom(foregroundColor: Colors.red),
+                    child: const Text('Delete'),
+                  ),
+                ],
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      widget.todo.title,
-                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        decoration: isDone ? TextDecoration.lineThrough : null,
-                        color: isDone ? Colors.white54 : Colors.white,
-                        fontWeight: FontWeight.w600,
+            ) ?? false;
+          },
+          onDismissed: (_) => widget.onDelete(),
+          background: Container(
+            alignment: Alignment.centerRight,
+            padding: const EdgeInsets.only(right: 20),
+            decoration: BoxDecoration(
+              color: Colors.red.withValues(alpha: 0.8),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: const Icon(Icons.delete, color: Colors.white),
+          ),
+          child: GlassContainer(
+            opacity: widget.todo.isCompleted ? 0.05 : 0.1,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Checkbox(
+                    value: isDone,
+                    onChanged: _handleToggle,
+                    activeColor: widget.activeColor ?? Theme.of(context).colorScheme.primary,
+                    side: BorderSide(color: Colors.white.withValues(alpha: 0.5)),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.todo.title,
+                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                          decoration: isDone ? TextDecoration.lineThrough : null,
+                          color: isDone ? Colors.white54 : Colors.white,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
-                    ),
-                    if (widget.todo.detail != null && widget.todo.detail!.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 2),
-                        child: Text(
-                          widget.todo.detail!,
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Colors.white70,
+                      if (widget.todo.detail != null && widget.todo.detail!.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 2),
+                          child: Text(
+                            widget.todo.detail!,
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Colors.white70,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
                         ),
-                      ),
-                    // Date and Duration Row moved here
-                    if (widget.todo.dueDate != null || widget.todo.duration != null)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 6),
-                        child: Row(
-                          children: [
-                            if (widget.todo.dueDate != null) ...[
-                              const Icon(Icons.calendar_today, size: 12, color: Colors.white38),
-                              const SizedBox(width: 4),
-                              Text(
-                                () {
-                                  final date = widget.todo.dueDate!.toLocal();
-                                  final dateStr = '${date.month}/${date.day}';
-                                  if (date.hour != 0 || date.minute != 0) {
-                                    final timeStr = TimeOfDay.fromDateTime(date).format(context);
-                                    return '$dateStr $timeStr';
-                                  }
-                                  return dateStr;
-                                }(),
-                                style: const TextStyle(color: Colors.white38, fontSize: 12),
-                              ),
-                              const SizedBox(width: 12),
+                      // Date and Duration Row moved here
+                      if (widget.todo.dueDate != null || widget.todo.duration != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 6),
+                          child: Row(
+                            children: [
+                              if (widget.todo.dueDate != null) ...[
+                                const Icon(Icons.calendar_today, size: 12, color: Colors.white38),
+                                const SizedBox(width: 4),
+                                Text(
+                                  () {
+                                    final date = widget.todo.dueDate!.toLocal();
+                                    final dateStr = '${date.month}/${date.day}';
+                                    if (date.hour != 0 || date.minute != 0) {
+                                      final timeStr = TimeOfDay.fromDateTime(date).format(context);
+                                      return '$dateStr $timeStr';
+                                    }
+                                    return dateStr;
+                                  }(),
+                                  style: const TextStyle(color: Colors.white38, fontSize: 12),
+                                ),
+                                const SizedBox(width: 12),
+                              ],
+                              if (widget.todo.duration != null) ...[
+                                const Icon(Icons.timer, size: 12, color: Colors.white38),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '${widget.todo.duration} min',
+                                  style: const TextStyle(color: Colors.white38, fontSize: 12),
+                                ),
+                              ]
                             ],
-                            if (widget.todo.duration != null) ...[
-                              const Icon(Icons.timer, size: 12, color: Colors.white38),
-                              const SizedBox(width: 4),
-                              Text(
-                                '${widget.todo.duration} min',
-                                style: const TextStyle(color: Colors.white38, fontSize: 12),
-                              ),
-                            ]
-                          ],
+                          ),
                         ),
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: GestureDetector(
-                  onTap: widget.onPriorityTap,
-                  child: Container(
-                    width: 12,
-                    height: 12,
-                    decoration: BoxDecoration(
-                      color: priorityColor,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(color: priorityColor.withValues(alpha: 0.4), blurRadius: 4),
-                      ]
+                const SizedBox(width: 8),
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: GestureDetector(
+                    onTap: widget.onPriorityTap,
+                    child: Container(
+                      width: 12,
+                      height: 12,
+                      decoration: BoxDecoration(
+                        color: priorityColor,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(color: priorityColor.withValues(alpha: 0.4), blurRadius: 4),
+                        ]
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ).animate().fadeIn().slideX(begin: 0.2, end: 0),
       ),

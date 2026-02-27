@@ -129,7 +129,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
         List<String>? currentListSections;
 
         // If we are on the Lists tab and NO specific list is selected, show New List
-        if (_selectedIndex == 1 && selectedListId == null) {
+        if (_selectedIndex == 1 && selectedListId == null && !provider.isViewingInbox) {
           return FloatingActionButton.extended(
             onPressed: () {
               showDialog(

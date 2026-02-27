@@ -15,13 +15,27 @@ class ListDetailScreen extends StatefulWidget {
 }
 
 class _ListDetailScreenState extends State<ListDetailScreen> {
+  late TodoProvider _provider;
+
   @override
   void initState() {
     super.initState();
+    _provider = context.read<TodoProvider>();
     // Set the selected list ID so provider knows which sort preference to use
     Future.microtask(() {
-      context.read<TodoProvider>().setSelectedListId(widget.list.id);
+      _provider.setSelectedListId(widget.list.id);
+      if (widget.list.id == null && widget.list.title.toLowerCase() == 'inbox') {
+        _provider.setViewingInbox(true);
+      }
     });
+  }
+
+  @override
+  void dispose() {
+    if (widget.list.id == null && widget.list.title.toLowerCase() == 'inbox') {
+      _provider.setViewingInbox(false);
+    }
+    super.dispose();
   }
 
   @override
@@ -235,22 +249,72 @@ class _ListDetailScreenState extends State<ListDetailScreen> {
     final tasksInSection = allActiveTasks.where((t) => t.section == sectionName).toList();
     if (tasksInSection.isEmpty && sectionName == null) return const SizedBox.shrink(); // Don't show empty Ungrouped
 
+    bool isDeleting = false;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
           padding: const EdgeInsets.only(top: 8, bottom: 16),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.start,
-            children: [
-              Text(
-                sectionName ?? 'Ungrouped',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: listColor ?? Theme.of(context).colorScheme.primary,
+          child: StatefulBuilder(
+            builder: (context, setState) {
+              return GestureDetector(
+                onTap: () {
+                  if (sectionName != null) {
+                    setState(() => isDeleting = !isDeleting);
+                  }
+                },
+                behavior: HitTestBehavior.opaque,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.start,
+                  children: [
+                    Text(
+                      sectionName ?? 'Ungrouped',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: listColor ?? Theme.of(context).colorScheme.primary,
+                      ),
+                    ),
+                    AnimatedSize(
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeOut,
+                      child: isDeleting
+                          ? Padding(
+                              padding: const EdgeInsets.only(left: 12),
+                              child: IconButton(
+                                icon: const Icon(Icons.delete, color: Colors.red),
+                                onPressed: () {
+                                  showDialog(
+                                    context: context,
+                                    builder: (context) => AlertDialog(
+                                      backgroundColor: const Color(0xFF1E1E1E),
+                                      title: const Text('Delete Section', style: TextStyle(color: Colors.white)),
+                                      content: Text('Delete "$sectionName"? Tasks will be ungrouped.', style: const TextStyle(color: Colors.white70)),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () => Navigator.pop(context),
+                                          child: const Text('Cancel', style: TextStyle(color: Colors.white70)),
+                                        ),
+                                        TextButton(
+                                          onPressed: () {
+                                            provider.deleteSection(currentList.id!, sectionName!);
+                                            Navigator.pop(context);
+                                          },
+                                          style: TextButton.styleFrom(foregroundColor: Colors.red),
+                                          child: const Text('Delete'),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                },
+                              ),
+                            )
+                          : const SizedBox.shrink(),
+                    ),
+                  ],
                 ),
-              ),
-            ],
+              );
+            }
           ),
         ),
         if (tasksInSection.isEmpty)
