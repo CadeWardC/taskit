@@ -258,6 +258,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                       todo: todo,
                                       onToggle: () => provider.toggleTodo(todo.id!),
                                       onDelete: () => provider.deleteTodo(todo.id!),
+                                      onPriorityTap: () => provider.cycleTodoPriority(todo.id!),
                                     ),
                                   ),
                                 );

@@ -38,6 +38,9 @@ class Todo {
 
   // Order for custom sorting
   final int? order;
+  
+  // Section name this task belongs to
+  final String? section;
 
   Todo({
     this.id,
@@ -53,6 +56,7 @@ class Todo {
     this.repeatInterval = 1,
     this.customRecurringDays,
     this.order,
+    this.section,
   });
 
   factory Todo.fromJson(Map<String, dynamic> json) => _$TodoFromJson(json);
@@ -72,6 +76,7 @@ class Todo {
     int? repeatInterval,
     List<int>? customRecurringDays,
     int? order,
+    String? section,
   }) {
     return Todo(
       id: id ?? this.id,
@@ -87,6 +92,7 @@ class Todo {
       repeatInterval: repeatInterval ?? this.repeatInterval,
       customRecurringDays: customRecurringDays ?? this.customRecurringDays,
       order: order ?? this.order,
+      section: section ?? this.section,
     );
   }
 

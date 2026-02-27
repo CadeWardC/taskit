@@ -33,10 +33,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
     }).toList();
   }
 
-  bool _hasTasksOnDate(List<Todo> todos, DateTime date) {
-    return _getTasksForDate(todos, date).isNotEmpty;
-  }
-
   /// Returns up to 3 unique list colors for tasks due on this date.
   List<Color> _getListColorsForDate(List<Todo> todos, List<TodoList> lists, DateTime date) {
     final tasks = _getTasksForDate(todos, date);
@@ -231,6 +227,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           todo: todo,
                           onToggle: () => provider.toggleTodo(todo.id!),
                           onDelete: () => provider.deleteTodo(todo.id!),
+                          onPriorityTap: () => provider.cycleTodoPriority(todo.id!),
                         ),
                       );
                     }, childCount: tasksForSelected.length),

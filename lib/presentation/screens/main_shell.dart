@@ -9,6 +9,7 @@ import 'habits_screen.dart';
 import 'settings_screen.dart';
 import '../widgets/task_dialog.dart';
 import '../widgets/habit_dialog.dart';
+import '../widgets/list_dialog.dart';
 import '../navigation/lists_navigator.dart';
 
 class MainShell extends StatefulWidget {
@@ -120,16 +121,33 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
       );
     }
     
-    // Today, Lists, Calendar - show "New Task" button
-    // Today, Lists, Calendar - show "New Task" button
+    // Today, Lists, Calendar - conditionally show "New List" or "New Task"
     return Consumer<TodoProvider>(
       builder: (context, provider, child) {
         Color fabColor = Theme.of(context).colorScheme.primary;
         final selectedListId = provider.selectedListId;
+        List<String>? currentListSections;
+
+        // If we are on the Lists tab and NO specific list is selected, show New List
+        if (_selectedIndex == 1 && selectedListId == null) {
+          return FloatingActionButton.extended(
+            onPressed: () {
+              showDialog(
+                context: context,
+                builder: (context) => const ListDialog(),
+              );
+            },
+            backgroundColor: Theme.of(context).colorScheme.primary,
+            foregroundColor: Colors.black,
+            icon: const Icon(Icons.add),
+            label: const Text('New List'),
+          );
+        }
 
         if (selectedListId != null) {
           try {
             final list = provider.lists.firstWhere((l) => l.id == selectedListId);
+            currentListSections = list.sections;
             if (list.color != null) {
               fabColor = Color(int.parse(list.color!.replaceFirst('#', '0xFF')));
             }
@@ -146,7 +164,10 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
               onPressed: () {
                 showDialog(
                   context: context,
-                  builder: (context) => TaskDialog(initialListId: selectedListId),
+                  builder: (context) => TaskDialog(
+                    initialListId: selectedListId,
+                    availableSections: currentListSections,
+                  ),
                 );
               },
               backgroundColor: color,
@@ -159,7 +180,5 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
       },
     );
   }
-
-
 
 }

@@ -181,6 +181,7 @@ class TodoProvider extends ChangeNotifier {
     int repeatInterval = 1,
     List<int>? customRecurringDays,
     String? recurring, // Deprecated
+    String? section,
   }) async {
     try {
       // Calculate order (put at top)
@@ -208,6 +209,7 @@ class TodoProvider extends ChangeNotifier {
         repeatInterval: repeatInterval,
         customRecurringDays: customRecurringDays,
         order: newOrder,
+        section: section,
       );
       _todos.add(newTodo);
       _sortTodos();
@@ -233,6 +235,7 @@ class TodoProvider extends ChangeNotifier {
     int? repeatInterval,
     List<int>? customRecurringDays,
     bool? isCompleted,
+    String? section,
   }) async {
     try {
       final updatedTodo = await _repository.updateTodo(
@@ -248,6 +251,7 @@ class TodoProvider extends ChangeNotifier {
         repeatInterval: repeatInterval,
         customRecurringDays: customRecurringDays,
         isCompleted: isCompleted,
+        section: section,
       );
       
       final index = _todos.indexWhere((t) => t.id == id);
@@ -281,9 +285,9 @@ class TodoProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> updateList(int id, {String? title, String? color}) async {
-    try {
-      final updatedList = await _repository.updateList(id, title: title, color: color);
+  Future<void> updateList(int id, {String? title, String? color, List<String>? sections, String? sectionLayout}) async {
+  try {
+    final updatedList = await _repository.updateList(id, title: title, color: color, sections: sections, sectionLayout: sectionLayout);
       final index = _lists.indexWhere((l) => l.id == id);
       if (index != -1) {
         _lists[index] = updatedList;
@@ -345,6 +349,31 @@ class TodoProvider extends ChangeNotifier {
     } catch (e) {
       _error = e.toString();
       notifyListeners();
+    }
+  }
+
+  Future<void> cycleTodoPriority(int id) async {
+    final index = _todos.indexWhere((t) => t.id == id);
+    if (index != -1) {
+      final todo = _todos[index];
+      String nextPriority;
+      switch (todo.priority.toLowerCase()) {
+        case 'none':
+          nextPriority = 'low';
+          break;
+        case 'low':
+          nextPriority = 'medium';
+          break;
+        case 'medium':
+          nextPriority = 'high';
+          break;
+        case 'high':
+          nextPriority = 'none';
+          break;
+        default:
+          nextPriority = 'low';
+      }
+      await updateTodo(id, priority: nextPriority);
     }
   }
 

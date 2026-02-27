@@ -12,6 +12,10 @@ TodoList _$TodoListFromJson(Map<String, dynamic> json) => TodoList(
   color: json['color'] as String?,
   order: (json['order'] as num?)?.toInt(),
   sortOption: json['sort_option'] as String?,
+  sections: (json['sections'] as List<dynamic>?)
+      ?.map((e) => e as String)
+      .toList(),
+  sectionLayout: json['section_layout'] as String?,
 );
 
 Map<String, dynamic> _$TodoListToJson(TodoList instance) => <String, dynamic>{
@@ -20,4 +24,6 @@ Map<String, dynamic> _$TodoListToJson(TodoList instance) => <String, dynamic>{
   'color': instance.color,
   'order': instance.order,
   'sort_option': instance.sortOption,
+  'sections': instance.sections,
+  'section_layout': instance.sectionLayout,
 };

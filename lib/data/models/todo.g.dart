@@ -26,6 +26,7 @@ Todo _$TodoFromJson(Map<String, dynamic> json) => Todo(
       ?.map((e) => (e as num).toInt())
       .toList(),
   order: (json['order'] as num?)?.toInt(),
+  section: json['section'] as String?,
 );
 
 Map<String, dynamic> _$TodoToJson(Todo instance) => <String, dynamic>{
@@ -42,4 +43,5 @@ Map<String, dynamic> _$TodoToJson(Todo instance) => <String, dynamic>{
   'repeat_interval': instance.repeatInterval,
   'custom_recurring_days': instance.customRecurringDays,
   'order': instance.order,
+  'section': instance.section,
 };

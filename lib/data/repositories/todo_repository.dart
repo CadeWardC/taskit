@@ -20,6 +20,7 @@ class TodoRepository {
     int repeatInterval = 1,
     List<int>? customRecurringDays,
     int? order,
+    String? section,
   }) => _service.createTodo(
         title: title,
         detail: detail,
@@ -31,6 +32,7 @@ class TodoRepository {
         repeatInterval: repeatInterval,
         customRecurringDays: customRecurringDays,
         order: order,
+        section: section,
       );
 
   Future<Todo> updateTodo(int id, {
@@ -46,6 +48,7 @@ class TodoRepository {
     int? repeatInterval,
     List<int>? customRecurringDays,
     int? order,
+    String? section,
   }) => _service.updateTodo(
         id,
         isCompleted: isCompleted,
@@ -70,7 +73,7 @@ class TodoRepository {
   Future<TodoList> addList(String title, String color, {int? order, String sortOption = 'custom'}) => 
       _service.createList(title, color, order: order, sortOption: sortOption);
 
-  Future<TodoList> updateList(int id, {String? title, String? color, int? order, String? sortOption}) => 
-      _service.updateList(id, title: title, color: color, order: order, sortOption: sortOption);
+  Future<TodoList> updateList(int id, {String? title, String? color, int? order, String? sortOption, List<String>? sections, String? sectionLayout}) => 
+    _service.updateList(id, title: title, color: color, order: order, sortOption: sortOption, sections: sections, sectionLayout: sectionLayout);
   Future<void> deleteList(int id) => _service.deleteList(id);
 }

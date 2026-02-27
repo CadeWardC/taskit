@@ -29,6 +29,7 @@ class TaskCard extends StatefulWidget {
   final Todo todo;
   final VoidCallback onToggle;
   final VoidCallback onDelete;
+  final VoidCallback? onPriorityTap;
   final Color? activeColor;
 
   const TaskCard({
@@ -36,6 +37,7 @@ class TaskCard extends StatefulWidget {
     required this.todo,
     required this.onToggle,
     required this.onDelete,
+    this.onPriorityTap,
     this.activeColor,
   });
 
@@ -182,15 +184,18 @@ class _TaskCardState extends State<TaskCard> with SingleTickerProviderStateMixin
               const SizedBox(width: 8),
               Padding(
                 padding: const EdgeInsets.only(top: 4),
-                child: Container(
-                  width: 12,
-                  height: 12,
-                  decoration: BoxDecoration(
-                    color: priorityColor,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(color: priorityColor.withValues(alpha: 0.4), blurRadius: 4),
-                    ]
+                child: GestureDetector(
+                  onTap: widget.onPriorityTap,
+                  child: Container(
+                    width: 12,
+                    height: 12,
+                    decoration: BoxDecoration(
+                      color: priorityColor,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(color: priorityColor.withValues(alpha: 0.4), blurRadius: 4),
+                      ]
+                    ),
                   ),
                 ),
               ),

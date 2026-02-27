@@ -7,8 +7,16 @@ import '../widgets/recurring_picker.dart';
 class TaskDialog extends StatefulWidget {
   final Todo? todo;
   final int? initialListId;
+  final String? defaultSection;
+  final List<String>? availableSections;
 
-  const TaskDialog({super.key, this.todo, this.initialListId});
+  const TaskDialog({
+    super.key,
+    this.todo,
+    this.initialListId,
+    this.defaultSection,
+    this.availableSections,
+  });
 
   @override
   State<TaskDialog> createState() => _TaskDialogState();
@@ -25,6 +33,7 @@ class _TaskDialogState extends State<TaskDialog> {
   String? _recurringFrequency;
   int _repeatInterval = 1;
   List<int>? _customRecurringDays;
+  String? _section;
 
   @override
   void initState() {
@@ -40,6 +49,7 @@ class _TaskDialogState extends State<TaskDialog> {
     _recurringFrequency = widget.todo?.recurringFrequency;
     _repeatInterval = widget.todo?.repeatInterval ?? 1;
     _customRecurringDays = widget.todo?.customRecurringDays;
+    _section = widget.todo?.section ?? widget.defaultSection;
   }
 
   @override
@@ -286,10 +296,47 @@ class _TaskDialogState extends State<TaskDialog> {
                         ),
                       )
                       .toList(),
-                  onChanged: (val) => setState(() => _listId = val),
+                  onChanged: (val) {
+                    setState(() {
+                      _listId = val;
+                      // When list changes, we don't know the new sections here, 
+                      // so we might just clear section if it doesn't match a new list's sections,
+                      // but for simplicity, we let the user re-select or it submits as string.
+                    });
+                  },
                 );
               },
             ),
+            if (widget.availableSections != null && widget.availableSections!.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                initialValue: widget.availableSections!.contains(_section) ? _section : null,
+                dropdownColor: const Color(0xFF2C2C2C),
+                style: const TextStyle(color: Colors.white),
+                decoration: InputDecoration(
+                  labelText: 'Section',
+                  filled: true,
+                  fillColor: Colors.white.withValues(alpha: 0.05),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+                items: [
+                  const DropdownMenuItem<String>(
+                    value: null,
+                    child: Text('No Section'),
+                  ),
+                  ...widget.availableSections!.map(
+                    (s) => DropdownMenuItem(
+                      value: s,
+                      child: Text(s),
+                    ),
+                  )
+                ],
+                onChanged: (val) => setState(() => _section = val),
+              ),
+            ],
             const SizedBox(height: 12),
             // Recurring Picker Button
             InkWell(
@@ -377,6 +424,7 @@ class _TaskDialogState extends State<TaskDialog> {
                             recurringFrequency: _recurringFrequency,
                             repeatInterval: _repeatInterval,
                             customRecurringDays: _customRecurringDays,
+                            section: _section,
                           );
                     } else {
                       context.read<TodoProvider>().updateTodo(
@@ -391,6 +439,7 @@ class _TaskDialogState extends State<TaskDialog> {
                             recurringFrequency: _recurringFrequency,
                             repeatInterval: _repeatInterval,
                             customRecurringDays: _customRecurringDays,
+                            section: _section,
                           );
                     }
                     Navigator.pop(context);

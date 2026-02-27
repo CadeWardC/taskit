@@ -10,6 +10,13 @@ class TodoList {
   final int? order; // Custom sort order
   @JsonKey(name: 'sort_option')
   final String? sortOption; // 'date', 'priority', 'custom'
+  
+  // JSON array of section names
+  final List<String>? sections;
+  
+  // 'vertical' or 'horizontal'
+  @JsonKey(name: 'section_layout')
+  final String? sectionLayout;
 
   TodoList({
     this.id,
@@ -17,6 +24,8 @@ class TodoList {
     this.color,
     this.order,
     this.sortOption,
+    this.sections,
+    this.sectionLayout,
   });
 
   factory TodoList.fromJson(Map<String, dynamic> json) => _$TodoListFromJson(json);

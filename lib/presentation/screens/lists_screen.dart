@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/todo_provider.dart';
-import '../widgets/color_selector.dart';
 import '../../data/services/local_cache_service.dart';
 import 'list_detail_screen.dart';
+import '../widgets/list_dialog.dart';
 
 class ListsScreen extends StatefulWidget {
   const ListsScreen({super.key});
@@ -79,70 +79,7 @@ class _ListsScreenState extends State<ListsScreen> {
     });
   }
 
-  void _showAddListDialog(BuildContext context) {
-    final titleController = TextEditingController();
-    Color selectedColor = const Color(0xFFBB86FC);
-
-    showDialog(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          backgroundColor: const Color(0xFF1E1E1E),
-          title: const Text('New List'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: titleController,
-                textCapitalization: TextCapitalization.sentences,
-                style: const TextStyle(color: Colors.white),
-                decoration: InputDecoration(
-                  labelText: 'List Name',
-                  filled: true,
-                  fillColor: Colors.white.withValues(alpha: 0.05),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              ColorSelector(
-                selectedColor: '#${selectedColor.toARGB32().toRadixString(16).padLeft(8, '0').substring(2).toUpperCase()}',
-                onColorChanged: (hex) {
-                  setDialogState(() {
-                    selectedColor = Color(int.parse(hex.replaceFirst('#', '0xFF')));
-                  });
-                },
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                if (titleController.text.isNotEmpty) {
-                  context.read<TodoProvider>().addList(
-                    titleController.text,
-                    '#${selectedColor.toARGB32().toRadixString(16).padLeft(8, '0').substring(2).toUpperCase()}',
-                  );
-                  Navigator.pop(context);
-                }
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Theme.of(context).colorScheme.primary,
-                foregroundColor: Colors.black,
-              ),
-              child: const Text('Create'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+  // _showAddListDialog removed as it's now handled by the global FAB.
 
   @override
   Widget build(BuildContext context) {
@@ -188,12 +125,6 @@ class _ListsScreenState extends State<ListsScreen> {
                       'Lists',
                       style: Theme.of(context).textTheme.headlineMedium
                           ?.copyWith(fontWeight: FontWeight.bold),
-                    ),
-                    const Spacer(),
-                    IconButton(
-                      onPressed: () => _showAddListDialog(context),
-                      icon: const Icon(Icons.add_circle_outline),
-                      tooltip: 'Add List',
                     ),
                   ],
                 ),
@@ -264,7 +195,10 @@ class _ListsScreenState extends State<ListsScreen> {
                                 return false; // Don't dismiss immediately, let dialog handle it via provider update
                               } else {
                                 // Swipe Right - Edit
-                                _showEditListDialog(context, list);
+                                showDialog(
+                                  context: context,
+                                  builder: (context) => ListDialog(list: list),
+                                );
                                 return false;
                               }
                             },
@@ -378,76 +312,7 @@ class _ListsScreenState extends State<ListsScreen> {
     );
   }
 
-  void _showEditListDialog(BuildContext context, dynamic list) {
-    final titleController = TextEditingController(text: list.title);
-    Color selectedColor = Theme.of(context).colorScheme.primary;
-    if (list.color != null) {
-      try {
-        selectedColor = Color(int.parse(list.color!.replaceFirst('#', '0xFF')));
-      } catch (_) {}
-    }
-
-    showDialog(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          backgroundColor: const Color(0xFF1E1E1E),
-          title: const Text('Edit List'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: titleController,
-                textCapitalization: TextCapitalization.sentences,
-                style: const TextStyle(color: Colors.white),
-                decoration: InputDecoration(
-                  labelText: 'List Name',
-                  filled: true,
-                  fillColor: Colors.white.withValues(alpha: 0.05),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-                ColorSelector(
-                selectedColor: '#${selectedColor.toARGB32().toRadixString(16).padLeft(8, '0').substring(2).toUpperCase()}',
-                onColorChanged: (hex) {
-                  setDialogState(() {
-                    selectedColor = Color(int.parse(hex.replaceFirst('#', '0xFF')));
-                  });
-                },
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                if (titleController.text.isNotEmpty) {
-                  context.read<TodoProvider>().updateList(
-                    list.id!,
-                    title: titleController.text,
-                    color: '#${selectedColor.toARGB32().toRadixString(16).padLeft(8, '0').substring(2).toUpperCase()}',
-                  );
-                  Navigator.pop(context);
-                }
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Theme.of(context).colorScheme.primary,
-                foregroundColor: Colors.black,
-              ),
-              child: const Text('Save'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+  // _showEditListDialog replaced by standard ListDialog
 
   void _showDeleteListDialog(BuildContext context, dynamic list) {
     showDialog(

@@ -29,6 +29,9 @@ Habit _$HabitFromJson(Map<String, dynamic> json) => Habit(
   createdAt: json['created_at'] == null
       ? null
       : DateTime.parse(json['created_at'] as String),
+  dateUpdated: json['date_updated'] == null
+      ? null
+      : DateTime.parse(json['date_updated'] as String),
 );
 
 Map<String, dynamic> _$HabitToJson(Habit instance) => <String, dynamic>{
@@ -48,4 +51,5 @@ Map<String, dynamic> _$HabitToJson(Habit instance) => <String, dynamic>{
   'last_completed': instance.lastCompleted?.toIso8601String(),
   'created_at': instance.createdAt?.toIso8601String(),
   'unit': instance.unit,
+  'date_updated': instance.dateUpdated?.toIso8601String(),
 };

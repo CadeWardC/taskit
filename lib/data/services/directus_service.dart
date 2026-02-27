@@ -84,11 +84,11 @@ class DirectusService {
     int? duration,
     String priority = 'none',
     int? listId,
-
     String? recurringFrequency,
     int repeatInterval = 1,
     List<int>? customRecurringDays,
     int? order,
+    String? section,
   }) async {
     try {
       final response = await _dio.post('/items/todos', data: {
@@ -103,6 +103,7 @@ class DirectusService {
         'repeat_interval': repeatInterval,
         'custom_recurring_days': customRecurringDays,
         'order': order,
+        'section': section,
         'user_id': _currentUserId,
       });
       return Todo.fromJson(response.data['data']);
@@ -126,6 +127,7 @@ class DirectusService {
     int? repeatInterval,
     List<int>? customRecurringDays,
     int? order,
+    String? section,
   }) async {
     try {
       final Map<String, dynamic> data = {};
@@ -144,6 +146,7 @@ class DirectusService {
       if (repeatInterval != null) data['repeat_interval'] = repeatInterval;
       if (customRecurringDays != null) data['custom_recurring_days'] = customRecurringDays;
       if (order != null) data['order'] = order;
+      if (section != null) data['section'] = section;
 
       final response = await _dio.patch('/items/todos/$id', data: data);
       return Todo.fromJson(response.data['data']);
@@ -204,13 +207,15 @@ class DirectusService {
     }
   }
 
-  Future<TodoList> updateList(int id, {String? title, String? color, int? order, String? sortOption}) async {
-    try {
-      final Map<String, dynamic> data = {};
-      if (title != null) data['title'] = title;
-      if (color != null) data['color'] = color;
-      if (order != null) data['order'] = order;
-      if (sortOption != null) data['sort_option'] = sortOption;
+  Future<TodoList> updateList(int id, {String? title, String? color, int? order, String? sortOption, List<String>? sections, String? sectionLayout}) async {
+  try {
+    final Map<String, dynamic> data = {};
+    if (title != null) data['title'] = title;
+    if (color != null) data['color'] = color;
+    if (order != null) data['order'] = order;
+    if (sortOption != null) data['sort_option'] = sortOption;
+    if (sections != null) data['sections'] = sections;
+    if (sectionLayout != null) data['section_layout'] = sectionLayout;
 
       final response = await _dio.patch('/items/lists/$id', data: data);
       return TodoList.fromJson(response.data['data']);
