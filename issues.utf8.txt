@@ -1,8 +1,0 @@
-﻿Analyzing taskit...                                             
-
-warning - The declaration '_$HabitFromJson' isn't referenced - lib\data\models\habit.g.dart:9:7 - unused_element
-warning - The declaration '_hasTasksOnDate' isn't referenced - lib\presentation\screens\calendar_screen.dart:36:8 - unused_element
-  error - The argument type 'int?' can't be assigned to the parameter type 'int'.  - lib\presentation\screens\list_detail_screen.dart:159:21 - argument_type_not_assignable
-  error - Expected to find ')' - lib\presentation\screens\list_detail_screen.dart:229:6 - expected_token
-   info - 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre - lib\presentation\widgets\task_dialog.dart:313:17 - deprecated_member_use
-

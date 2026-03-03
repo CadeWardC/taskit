@@ -9,6 +9,7 @@ class TaskDialog extends StatefulWidget {
   final int? initialListId;
   final String? defaultSection;
   final List<String>? availableSections;
+  final DateTime? initialDate;
 
   const TaskDialog({
     super.key,
@@ -16,6 +17,7 @@ class TaskDialog extends StatefulWidget {
     this.initialListId,
     this.defaultSection,
     this.availableSections,
+    this.initialDate,
   });
 
   @override
@@ -44,7 +46,7 @@ class _TaskDialogState extends State<TaskDialog> {
         text: widget.todo?.duration?.toString() ?? '');
     
     _priority = widget.todo?.priority ?? 'none';
-    _dueDate = widget.todo?.dueDate;
+    _dueDate = widget.todo?.dueDate ?? widget.initialDate;
     _listId = widget.todo?.listId ?? widget.initialListId;
     _recurringFrequency = widget.todo?.recurringFrequency;
     _repeatInterval = widget.todo?.repeatInterval ?? 1;
@@ -288,14 +290,18 @@ class _TaskDialogState extends State<TaskDialog> {
                       borderSide: BorderSide.none,
                     ),
                   ),
-                  items: provider.lists
-                      .map(
-                        (l) => DropdownMenuItem(
-                          value: l.id,
-                          child: Text(l.title),
-                        ),
-                      )
-                      .toList(),
+                  items: [
+                    const DropdownMenuItem<int>(
+                      value: null,
+                      child: Text('Inbox'),
+                    ),
+                    ...provider.lists.map(
+                      (l) => DropdownMenuItem<int>(
+                        value: l.id,
+                        child: Text(l.title),
+                      ),
+                    ),
+                  ],
                   onChanged: (val) {
                     setState(() {
                       _listId = val;

@@ -162,11 +162,13 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
           builder: (context, color, child) {
             return FloatingActionButton.extended(
               onPressed: () {
+                final now = DateTime.now();
                 showDialog(
                   context: context,
                   builder: (context) => TaskDialog(
-                    initialListId: selectedListId,
-                    availableSections: currentListSections,
+                    initialListId: _selectedIndex == 0 ? null : selectedListId,
+                    availableSections: _selectedIndex == 0 ? null : currentListSections,
+                    initialDate: _selectedIndex == 0 ? DateTime(now.year, now.month, now.day) : null,
                   ),
                 );
               },

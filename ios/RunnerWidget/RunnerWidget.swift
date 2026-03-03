@@ -15,8 +15,8 @@ struct CachedDefaults {
 
     static var selectedListId: Int? {
         get {
-            let val = UserDefaults.standard.integer(forKey: selectedListIdKey)
-            return val == 0 ? nil : val
+            // Check if key actually exists, to allow `0` to represent our virtual Inbox ID
+            return UserDefaults.standard.object(forKey: selectedListIdKey) as? Int
         }
         set {
             if let id = newValue {
@@ -422,7 +422,7 @@ struct Provider: AppIntentTimelineProvider {
             habits: [],
             lists: [],
             displayMode: .allTasks,
-            selectedListId: nil,
+            selectedListId: 0, // Default to Inbox instead of nil (picker)
             userId: nil,
             isConfigured: true
         )
@@ -460,10 +460,13 @@ struct Provider: AppIntentTimelineProvider {
 
         let tasks = await fetchedTasks
         let habits = await fetchedHabits
-        let lists = await fetchedLists
+        // Create Inbox item and insert at top
+        var allLists = lists
+        let inboxList = ListItem(id: 0, title: "Inbox", color: "#BB86FC", sort_option: "custom")
+        allLists.insert(inboxList, at: 0)
 
-        // If selected list no longer exists, clear the selection
-        if let listId = selectedListId, !lists.contains(where: { $0.id == listId }) {
+        // If selected list no longer exists (and isn't Inbox), clear the selection
+        if let listId = selectedListId, listId != 0, !allLists.contains(where: { $0.id == listId }) {
             CachedDefaults.selectedListId = nil
         }
 
@@ -471,9 +474,9 @@ struct Provider: AppIntentTimelineProvider {
             date: Date(),
             tasks: tasks,
             habits: habits,
-            lists: lists,
+            lists: allLists,
             displayMode: mode,
-            selectedListId: lists.contains(where: { $0.id == selectedListId ?? 0 }) ? selectedListId : nil,
+            selectedListId: allLists.contains(where: { $0.id == (selectedListId ?? -1) }) ? selectedListId : 0, // Default to Inbox if no exact match but we have data
             userId: userId,
             isConfigured: true
         )
@@ -628,23 +631,22 @@ struct ListRowView: View {
     }
 
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 8) {
             Circle()
                 .fill(listColor)
-                .frame(width: 10, height: 10)
+                .frame(width: 8, height: 8)
 
             Text(list.title)
-                .font(.system(size: 14, weight: .medium))
+                .font(.system(size: 11, weight: .bold))
                 .foregroundColor(.primary)
                 .lineLimit(1)
 
             Spacer()
-
-            Image(systemName: "chevron.right")
-                .font(.system(size: 10))
-                .foregroundColor(.secondary)
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, 8)
+        .padding(.horizontal, 10)
+        .background(Color.black.opacity(0.15))
+        .cornerRadius(10)
     }
 }
 
@@ -783,7 +785,12 @@ struct TaskItWidgetEntryView: View {
         var tasks = entry.tasks.filter { !$0.is_completed }
 
         if let listId = entry.selectedListId {
-            tasks = tasks.filter { $0.listId == listId }
+            if listId == 0 {
+                // Inbox tasks have no list attachment
+                tasks = tasks.filter { $0.listId == nil }
+            } else {
+                tasks = tasks.filter { $0.listId == listId }
+            }
             
             // Sort based on the list's sort_option
             if let list = entry.lists.first(where: { $0.id == listId }) {
@@ -829,6 +836,15 @@ struct TaskItWidgetEntryView: View {
         }
     }
 
+    var maxListGridItems: Int {
+        switch family {
+        case .systemSmall: return 6
+        case .systemMedium: return 6
+        case .systemLarge: return 16
+        default: return 6
+        }
+    }
+
     @ViewBuilder
     var contentView: some View {
         switch entry.displayMode {
@@ -847,16 +863,18 @@ struct TaskItWidgetEntryView: View {
                     }
                 }
             } else {
-                // Show list picker
-                let visibleLists = Array(entry.lists.prefix(maxItems))
+                // Show list picker grid
+                let visibleLists = Array(entry.lists.prefix(maxListGridItems))
                 if visibleLists.isEmpty {
                     emptyView(message: "No lists yet")
                 } else {
-                    ForEach(visibleLists) { list in
-                        Button(intent: SelectListIntent(listId: list.id)) {
-                            ListRowView(list: list)
+                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 6) {
+                        ForEach(visibleLists) { list in
+                            Button(intent: SelectListIntent(listId: list.id)) {
+                                ListRowView(list: list)
+                            }
+                            .buttonStyle(.plain)
                         }
-                        .buttonStyle(.plain)
                     }
                 }
             }

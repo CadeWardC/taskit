@@ -65,30 +65,10 @@ class _ListDetailScreenState extends State<ListDetailScreen> {
                   tooltip: 'New Section',
                   onPressed: () => _showAddSectionDialog(context, provider, currentList),
                 ),
-                PopupMenuButton<SortOption>(
-                  icon: const Icon(Icons.sort),
-                  tooltip: 'Sort by',
-                  onSelected: (option) => provider.setSort(option),
-                  itemBuilder: (context) => [
-                    const PopupMenuItem(
-                      value: SortOption.date,
-                      child: Row(
-                         children: [Icon(Icons.calendar_today, size: 18), SizedBox(width: 8), Text('Date')],
-                      ),
-                    ),
-                    const PopupMenuItem(
-                      value: SortOption.priority,
-                       child: Row(
-                         children: [Icon(Icons.flag_outlined, size: 18), SizedBox(width: 8), Text('Priority')],
-                      ),
-                    ),
-                    const PopupMenuItem(
-                      value: SortOption.custom,
-                       child: Row(
-                         children: [Icon(Icons.drag_handle, size: 18), SizedBox(width: 8), Text('Custom')],
-                      ),
-                    ),
-                  ],
+                IconButton(
+                  icon: const Icon(Icons.tune),
+                  tooltip: 'View Options',
+                  onPressed: () => _showViewOptionsSheet(context, provider, currentList, listColor),
                 ),
               ],
             ),
@@ -167,6 +147,166 @@ class _ListDetailScreenState extends State<ListDetailScreen> {
             child: const Text('Add'),
           ),
         ],
+      ),
+    );
+  }
+
+  void _showViewOptionsSheet(BuildContext context, TodoProvider provider, TodoList currentList, Color? listColor) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1E1E1E),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                   // Layout Column
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Layout',
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white54,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        _buildOptionTile(
+                          context: context,
+                          icon: Icons.view_stream,
+                          label: 'Vertical',
+                          isSelected: currentList.sectionLayout != 'horizontal',
+                          activeColor: listColor,
+                          onTap: () {
+                            provider.updateList(currentList.id!, sectionLayout: null);
+                            Navigator.pop(context);
+                          },
+                        ),
+                        const SizedBox(height: 8),
+                        _buildOptionTile(
+                          context: context,
+                          icon: Icons.view_carousel,
+                          label: 'Horizontal',
+                          isSelected: currentList.sectionLayout == 'horizontal',
+                          activeColor: listColor,
+                          onTap: () {
+                            provider.updateList(currentList.id!, sectionLayout: 'horizontal');
+                            Navigator.pop(context);
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  // Sort Column
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Sort Tasks',
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white54,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        _buildOptionTile(
+                          context: context,
+                          icon: Icons.calendar_today,
+                          label: 'Date',
+                          isSelected: provider.currentSort == SortOption.date,
+                          activeColor: listColor,
+                          onTap: () {
+                            provider.setSort(SortOption.date);
+                            Navigator.pop(context);
+                          },
+                        ),
+                        const SizedBox(height: 8),
+                        _buildOptionTile(
+                          context: context,
+                          icon: Icons.flag_outlined,
+                          label: 'Priority',
+                          isSelected: provider.currentSort == SortOption.priority,
+                          activeColor: listColor,
+                          onTap: () {
+                            provider.setSort(SortOption.priority);
+                            Navigator.pop(context);
+                          },
+                        ),
+                        const SizedBox(height: 8),
+                         _buildOptionTile(
+                          context: context,
+                          icon: Icons.drag_handle,
+                          label: 'Custom',
+                          isSelected: provider.currentSort == SortOption.custom,
+                          activeColor: listColor,
+                          onTap: () {
+                            provider.setSort(SortOption.custom);
+                            Navigator.pop(context);
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildOptionTile({
+    required BuildContext context,
+    required IconData icon,
+    required String label,
+    required bool isSelected,
+    required Color? activeColor,
+    required VoidCallback onTap,
+  }) {
+    final color = isSelected ? (activeColor ?? Theme.of(context).colorScheme.primary) : Colors.white70;
+    
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: isSelected ? color.withValues(alpha: 0.1) : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected ? color.withValues(alpha: 0.3) : Colors.transparent,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 20, color: color),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(
+                  color: color,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                ),
+              ),
+            ),
+            if (isSelected)
+              Icon(Icons.check, size: 18, color: color),
+          ],
+        ),
       ),
     );
   }
