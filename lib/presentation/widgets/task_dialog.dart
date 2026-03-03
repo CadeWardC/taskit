@@ -51,7 +51,9 @@ class _TaskDialogState extends State<TaskDialog> {
     _recurringFrequency = widget.todo?.recurringFrequency;
     _repeatInterval = widget.todo?.repeatInterval ?? 1;
     _customRecurringDays = widget.todo?.customRecurringDays;
-    _section = widget.todo?.section ?? widget.defaultSection;
+    
+    final provider = context.read<TodoProvider>();
+    _section = widget.todo?.section ?? widget.defaultSection ?? provider.activeSection;
   }
 
   @override

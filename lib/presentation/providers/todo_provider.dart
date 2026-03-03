@@ -44,6 +44,20 @@ class TodoProvider extends ChangeNotifier {
   bool _isViewingInbox = false;
   bool get isViewingInbox => _isViewingInbox;
 
+  String? _activeSection;
+  String? get activeSection => _activeSection;
+
+  void setActiveSection(String? section) {
+    if (_activeSection != section) {
+      _activeSection = section;
+      // We don't necessarily need to notifyListeners just for FAB state, 
+      // but it's good practice in case other UI depends on it.
+      // Be careful of triggering unnecessary rebuilds of lists though.
+      // Since it's mainly for new task default, we can just notify.
+      notifyListeners();
+    }
+  }
+
   void setViewingInbox(bool val) {
     _isViewingInbox = val;
     notifyListeners();
@@ -51,6 +65,7 @@ class TodoProvider extends ChangeNotifier {
 
   void setSelectedListId(int? id) {
     _selectedListId = id;
+    _activeSection = null; // Reset section when changing lists
     _sortTodos(); // Re-sort master list based on new context preference
     notifyListeners();
   }

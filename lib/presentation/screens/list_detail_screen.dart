@@ -14,8 +14,10 @@ class ListDetailScreen extends StatefulWidget {
   State<ListDetailScreen> createState() => _ListDetailScreenState();
 }
 
-class _ListDetailScreenState extends State<ListDetailScreen> {
+class _ListDetailScreenState extends State<ListDetailScreen> with SingleTickerProviderStateMixin {
   late TodoProvider _provider;
+  TabController? _tabController;
+  int _tabCount = 0;
 
   @override
   void initState() {
@@ -35,7 +37,39 @@ class _ListDetailScreenState extends State<ListDetailScreen> {
     if (widget.list.id == null && widget.list.title.toLowerCase() == 'inbox') {
       _provider.setViewingInbox(false);
     }
+    _provider.setActiveSection(null);
+    _tabController?.dispose();
     super.dispose();
+  }
+
+  void _initTabController(int count, TodoList list, bool hasUngroupedTasks) {
+    if (_tabController != null && _tabCount == count) return;
+    
+    final oldIndex = _tabController?.index ?? 0;
+    _tabController?.dispose();
+    _tabCount = count;
+    _tabController = TabController(length: count, vsync: this, initialIndex: oldIndex < count ? oldIndex : 0);
+    
+    // Set initial active section
+    _updateProviderActiveSection(list, hasUngroupedTasks);
+
+    _tabController!.addListener(() {
+      if (!_tabController!.indexIsChanging) {
+        _updateProviderActiveSection(list, hasUngroupedTasks);
+      }
+    });
+  }
+
+  void _updateProviderActiveSection(TodoList list, bool hasUngroupedTasks) {
+    if (_tabController == null) return;
+    final index = _tabController!.index;
+    final sectionCount = list.sections?.length ?? 0;
+    
+    if (index < sectionCount) {
+      _provider.setActiveSection(list.sections![index]);
+    } else if (hasUngroupedTasks && index == sectionCount) {
+      _provider.setActiveSection(null);
+    }
   }
 
   @override
@@ -53,6 +87,17 @@ class _ListDetailScreenState extends State<ListDetailScreen> {
           try {
             listColor = Color(int.parse(currentList.color!.replaceFirst('#', '0xFF')));
           } catch (_) {}
+        }
+
+        // Determine if we need the Ungrouped tab
+        final allTasks = provider.todos.where((t) => t.listId == currentList.id).toList();
+        final hasUngroupedTasks = allTasks.any((t) => t.section == null);
+
+        final sectionCount = currentList.sections?.length ?? 0;
+        final tabCount = sectionCount + (hasUngroupedTasks ? 1 : 0);
+
+        if (currentList.sectionLayout == 'horizontal' && sectionCount > 0) {
+           _initTabController(tabCount, currentList, hasUngroupedTasks);
         }
 
         return Scaffold(
@@ -75,31 +120,30 @@ class _ListDetailScreenState extends State<ListDetailScreen> {
             backgroundColor: listColor ?? Colors.black,
             elevation: 0,
           ),
-          body: currentList.sectionLayout == 'horizontal' && (currentList.sections?.isNotEmpty ?? false)
-              ? DefaultTabController(
-                  length: (currentList.sections?.length ?? 0) + 1, // +1 for "Ungrouped"
-                  child: Column(
-                    children: [
-                      TabBar(
-                        isScrollable: true,
-                        indicatorColor: listColor ?? Theme.of(context).colorScheme.primary,
-                        labelColor: listColor ?? Theme.of(context).colorScheme.primary,
-                        unselectedLabelColor: Colors.white54,
-                        tabs: [
-                          ...currentList.sections!.map((s) => Tab(text: s)),
-                          const Tab(text: 'Ungrouped'),
+          body: currentList.sectionLayout == 'horizontal' && sectionCount > 0
+              ? Column(
+                  children: [
+                    TabBar(
+                      controller: _tabController,
+                      isScrollable: true,
+                      indicatorColor: listColor ?? Theme.of(context).colorScheme.primary,
+                      labelColor: listColor ?? Theme.of(context).colorScheme.primary,
+                      unselectedLabelColor: Colors.white54,
+                      tabs: [
+                        ...currentList.sections!.map((s) => Tab(text: s)),
+                        if (hasUngroupedTasks) const Tab(text: 'Ungrouped'),
+                      ],
+                    ),
+                    Expanded(
+                      child: TabBarView(
+                        controller: _tabController,
+                        children: [
+                          ...currentList.sections!.map((sectionName) => _buildSectionList(context, currentList, sectionName, listColor)),
+                          if (hasUngroupedTasks) _buildSectionList(context, currentList, null, listColor), // Ungrouped
                         ],
                       ),
-                      Expanded(
-                        child: TabBarView(
-                          children: [
-                            ...currentList.sections!.map((sectionName) => _buildSectionList(context, currentList, sectionName, listColor)),
-                            _buildSectionList(context, currentList, null, listColor), // Ungrouped
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 )
               : _buildVerticalLayout(context, provider, currentList, listColor),
         );

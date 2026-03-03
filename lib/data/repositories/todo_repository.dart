@@ -63,6 +63,7 @@ class TodoRepository {
         repeatInterval: repeatInterval,
         customRecurringDays: customRecurringDays,
         order: order,
+        section: section,
       );
       
   Future<void> deleteTodo(int id) => _service.deleteTodo(id);
