@@ -41,7 +41,8 @@ jobs:
             -derivedDataPath build/widget-derived \
             CODE_SIGN_IDENTITY="-" \
             CODE_SIGNING_REQUIRED=YES \
-            CODE_SIGNING_ALLOWED=YES
+            CODE_SIGNING_ALLOWED=YES \
+            APP_INTENTS_GENERATE_METADATA_EXTRACT_APP_INTENTS_METADATA=NO
 
       # 3) Embed the widget into the app bundle and package
       - name: Package IPA with Widget
