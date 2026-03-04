@@ -422,7 +422,7 @@ struct Provider: AppIntentTimelineProvider {
             habits: [],
             lists: [],
             displayMode: .allTasks,
-            selectedListId: 0, // Default to Inbox instead of nil (picker)
+            selectedListId: nil, // Start on list picker for new widgets
             userId: nil,
             isConfigured: true
         )
@@ -476,7 +476,7 @@ struct Provider: AppIntentTimelineProvider {
             habits: habits,
             lists: allLists,
             displayMode: mode,
-            selectedListId: allLists.contains(where: { $0.id == (selectedListId ?? -1) }) ? selectedListId : 0, // Default to Inbox if no exact match but we have data
+            selectedListId: selectedListId != nil && allLists.contains(where: { $0.id == selectedListId! }) ? selectedListId : nil, // Keep nil to show list picker
             userId: userId,
             isConfigured: true
         )
