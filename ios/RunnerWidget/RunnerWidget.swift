@@ -461,7 +461,7 @@ struct Provider: AppIntentTimelineProvider {
         let tasks = await fetchedTasks
         let habits = await fetchedHabits
         // Create Inbox item and insert at top
-        var allLists = lists
+        var allLists = await fetchedLists
         let inboxList = ListItem(id: 0, title: "Inbox", color: "#BB86FC", sort_option: "custom")
         allLists.insert(inboxList, at: 0)
 
