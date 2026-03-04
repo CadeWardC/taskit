@@ -957,61 +957,61 @@ struct RunnerWidget: Widget {
 
 // MARK: - Previews
 
-#if DEBUG
-struct RunnerWidget_Previews: PreviewProvider {
-    static var previews: some View {
-        // Preview: List picker view
-        TaskItWidgetEntryView(entry: TaskItEntry(
-            date: Date(),
-            tasks: [],
-            habits: [],
-            lists: [
-                ListItem(id: 1, title: "Work", color: "#4CAF50", sort_option: "custom"),
-                ListItem(id: 2, title: "Personal", color: "#2196F3", sort_option: "priority"),
-                ListItem(id: 3, title: "Shopping", color: "#FF9800", sort_option: "custom"),
-            ],
-            displayMode: .allTasks,
-            selectedListId: nil,
-            userId: "test",
-            isConfigured: true
-        ))
-        .previewContext(WidgetPreviewContext(family: .systemMedium))
-        .previewDisplayName("List Picker")
-
-        // Preview: Tasks view
-        TaskItWidgetEntryView(entry: TaskItEntry(
-            date: Date(),
-            tasks: [
-                TaskItem(id: 1, title: "Buy groceries", detail: "Milk, eggs, bread", is_completed: false, priority: "medium", list_id: FlexibleInt(1), due_date: nil, order: FlexibleInt(0)),
-                TaskItem(id: 2, title: "Call dentist", detail: nil, is_completed: false, priority: "high", list_id: FlexibleInt(1), due_date: nil, order: FlexibleInt(1)),
-                TaskItem(id: 3, title: "Review PR", detail: nil, is_completed: false, priority: "none", list_id: FlexibleInt(1), due_date: nil, order: FlexibleInt(2)),
-            ],
-            habits: [],
-            lists: [ListItem(id: 1, title: "Work", color: "#4CAF50", sort_option: "priority")],
-            displayMode: .allTasks,
-            selectedListId: 1,
-            userId: "test",
-            isConfigured: true
-        ))
-        .previewContext(WidgetPreviewContext(family: .systemMedium))
-        .previewDisplayName("Task List")
-
-        // Preview: Habits view
-        TaskItWidgetEntryView(entry: TaskItEntry(
-            date: Date(),
-            tasks: [],
-            habits: [
-                HabitItem(id: 1, title: "Drink Water", detail: nil, icon: "\u{1F4A7}", color: "#2196F3", target_count: FlexibleInt(1), current_progress: FlexibleInt(0), current_streak: FlexibleInt(5), best_streak: FlexibleInt(12)),
-                HabitItem(id: 2, title: "Exercise", detail: nil, icon: "\u{1F4AA}", color: "#4CAF50", target_count: FlexibleInt(1), current_progress: FlexibleInt(1), current_streak: FlexibleInt(3), best_streak: FlexibleInt(10)),
-            ],
-            lists: [],
-            displayMode: .habits,
-            selectedListId: nil,
-            userId: "test",
-            isConfigured: true
-        ))
-        .previewContext(WidgetPreviewContext(family: .systemMedium))
-        .previewDisplayName("Habits")
-    }
-}
-#endif
+// #if DEBUG
+// struct RunnerWidget_Previews: PreviewProvider {
+//     static var previews: some View {
+//         // Preview: List picker view
+//         TaskItWidgetEntryView(entry: TaskItEntry(
+//             date: Date(),
+//             tasks: [],
+//             habits: [],
+//             lists: [
+//                 ListItem(id: 1, title: "Work", color: "#4CAF50", sort_option: "custom"),
+//                 ListItem(id: 2, title: "Personal", color: "#2196F3", sort_option: "priority"),
+//                 ListItem(id: 3, title: "Shopping", color: "#FF9800", sort_option: "custom"),
+//             ],
+//             displayMode: .allTasks,
+//             selectedListId: nil,
+//             userId: "test",
+//             isConfigured: true
+//         ))
+//         .previewContext(WidgetPreviewContext(family: .systemMedium))
+//         .previewDisplayName("List Picker")
+//
+//         // Preview: Tasks view
+//         TaskItWidgetEntryView(entry: TaskItEntry(
+//             date: Date(),
+//             tasks: [
+//                 TaskItem(id: 1, title: "Buy groceries", detail: "Milk, eggs, bread", is_completed: false, priority: "medium", list_id: FlexibleInt(1), due_date: nil, order: FlexibleInt(0)),
+//                 TaskItem(id: 2, title: "Call dentist", detail: nil, is_completed: false, priority: "high", list_id: FlexibleInt(1), due_date: nil, order: FlexibleInt(1)),
+//                 TaskItem(id: 3, title: "Review PR", detail: nil, is_completed: false, priority: "none", list_id: FlexibleInt(1), due_date: nil, order: FlexibleInt(2)),
+//             ],
+//             habits: [],
+//             lists: [ListItem(id: 1, title: "Work", color: "#4CAF50", sort_option: "priority")],
+//             displayMode: .allTasks,
+//             selectedListId: 1,
+//             userId: "test",
+//             isConfigured: true
+//         ))
+//         .previewContext(WidgetPreviewContext(family: .systemMedium))
+//         .previewDisplayName("Task List")
+//
+//         // Preview: Habits view
+//         TaskItWidgetEntryView(entry: TaskItEntry(
+//             date: Date(),
+//             tasks: [],
+//             habits: [
+//                 HabitItem(id: 1, title: "Drink Water", detail: nil, icon: "\u{1F4A7}", color: "#2196F3", target_count: FlexibleInt(1), current_progress: FlexibleInt(0), current_streak: FlexibleInt(5), best_streak: FlexibleInt(12)),
+//                 HabitItem(id: 2, title: "Exercise", detail: nil, icon: "\u{1F4AA}", color: "#4CAF50", target_count: FlexibleInt(1), current_progress: FlexibleInt(1), current_streak: FlexibleInt(3), best_streak: FlexibleInt(10)),
+//             ],
+//             lists: [],
+//             displayMode: .habits,
+//             selectedListId: nil,
+//             userId: "test",
+//             isConfigured: true
+//         ))
+//         .previewContext(WidgetPreviewContext(family: .systemMedium))
+//         .previewDisplayName("Habits")
+//     }
+// }
+// #endif
