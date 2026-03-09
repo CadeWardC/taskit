@@ -412,11 +412,56 @@ class TodoProvider extends ChangeNotifier {
       final index = _todos.indexWhere((t) => t.id == id);
       if (index != -1) {
         final todo = _todos[index];
+        final bool isCompleting = !todo.isCompleted;
+
         final updatedTodo = await _repository.updateTodo(
           id,
-          isCompleted: !todo.isCompleted,
+          isCompleted: isCompleting,
         );
         _todos[index] = updatedTodo;
+
+        // If completing a recurring task, generate the next occurrence
+        if (isCompleting && todo.isRecurring) {
+            DateTime baseDate = todo.dueDate ?? DateTime.now();
+            DateTime? nextDueDate = _calculateNextDueDate(baseDate, todo);
+            
+            if (nextDueDate != null) {
+                // Catch up to current time if overdue so we don't spawn tasks in the past
+                final now = DateTime.now();
+                while (nextDueDate!.isBefore(DateTime(now.year, now.month, now.day))) {
+                     DateTime? advanced = _calculateNextDueDate(nextDueDate, todo);
+                     if (advanced == null || advanced == nextDueDate) break;
+                     nextDueDate = advanced;
+                }
+                
+                // Prevent quick-toggle duplicates
+                bool exists = _todos.any((t) => 
+                    t.title == todo.title && 
+                    t.listId == todo.listId && 
+                    !t.isCompleted && 
+                    t.dueDate != null && 
+                    t.dueDate!.year == nextDueDate!.year &&
+                    t.dueDate!.month == nextDueDate.month &&
+                    t.dueDate!.day == nextDueDate.day
+                );
+                
+                if (!exists) {
+                    await addTodo(
+                      title: todo.title,
+                      detail: todo.detail,
+                      dueDate: nextDueDate,
+                      duration: todo.duration,
+                      priority: todo.priority,
+                      listId: todo.listId,
+                      recurringFrequency: todo.recurringFrequency,
+                      repeatInterval: todo.repeatInterval,
+                      customRecurringDays: todo.customRecurringDays,
+                      section: todo.section,
+                    );
+                }
+            }
+        }
+
         _sortTodos();
         await _updateWidgetData();
         await _saveCache();
@@ -664,5 +709,79 @@ class TodoProvider extends ChangeNotifier {
     } catch (e) {
       debugPrint("Error updating widget: $e");
     }
+  }
+
+  DateTime? _calculateNextDueDate(DateTime currentDueDate, Todo todo) {
+    if (!todo.isRecurring) return null;
+
+    final frequency = todo.recurringFrequency;
+    final interval = todo.repeatInterval;
+    final customDays = todo.customRecurringDays ?? [];
+
+    DateTime nextDate = currentDueDate;
+
+    if (frequency == 'daily') {
+      nextDate = currentDueDate.add(Duration(days: interval));
+    } else if (frequency == 'weekly') {
+      if (customDays.isEmpty) {
+         nextDate = currentDueDate.add(Duration(days: 7 * interval));
+      } else {
+         List<int> sortedDays = List.from(customDays)..sort();
+         int nextDayIndex = -1;
+         for (int i = 0; i < sortedDays.length; i++) {
+             if (sortedDays[i] > nextDate.weekday) {
+                 nextDayIndex = i;
+                 break;
+             }
+         }
+         
+         if (nextDayIndex != -1) {
+             int daysToAdd = sortedDays[nextDayIndex] - nextDate.weekday;
+             nextDate = nextDate.add(Duration(days: daysToAdd));
+         } else {
+             int daysUntilEndOfWeek = 7 - nextDate.weekday;
+             int daysToAdd = daysUntilEndOfWeek + sortedDays.first + (7 * (interval - 1));
+             nextDate = nextDate.add(Duration(days: daysToAdd));
+         }
+      }
+    } else if (frequency == 'monthly') {
+        if (customDays.isEmpty) {
+             int nextMonth = nextDate.month + interval;
+             int nextYear = nextDate.year + (nextMonth - 1) ~/ 12;
+             nextMonth = (nextMonth - 1) % 12 + 1;
+             
+             int daysInNextMonth = DateTime(nextYear, nextMonth + 1, 0).day;
+             int nextDay = nextDate.day > daysInNextMonth ? daysInNextMonth : nextDate.day;
+             
+             nextDate = DateTime(nextYear, nextMonth, nextDay, nextDate.hour, nextDate.minute);
+        } else {
+             List<int> sortedDays = List.from(customDays)..sort();
+             int nextCustomDay = -1;
+             for (int d in sortedDays) {
+                 if (d > nextDate.day) {
+                     nextCustomDay = d;
+                     break;
+                 }
+             }
+
+             if (nextCustomDay != -1) {
+                 int daysInCurrentMonth = DateTime(nextDate.year, nextDate.month + 1, 0).day;
+                 int actualNextDay = nextCustomDay > daysInCurrentMonth ? daysInCurrentMonth : nextCustomDay;
+                 nextDate = DateTime(nextDate.year, nextDate.month, actualNextDay, nextDate.hour, nextDate.minute);
+             } else {
+                 int nextMonth = nextDate.month + interval;
+                 int nextYear = nextDate.year + (nextMonth - 1) ~/ 12;
+                 nextMonth = (nextMonth - 1) % 12 + 1;
+
+                 int firstCustomDay = sortedDays.first;
+                 int daysInNextMonth = DateTime(nextYear, nextMonth + 1, 0).day;
+                 int actualNextDay = firstCustomDay > daysInNextMonth ? daysInNextMonth : firstCustomDay;
+
+                 nextDate = DateTime(nextYear, nextMonth, actualNextDay, nextDate.hour, nextDate.minute);
+             }
+        }
+    }
+
+    return nextDate;
   }
 }
